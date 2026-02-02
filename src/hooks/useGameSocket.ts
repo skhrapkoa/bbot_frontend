@@ -1,0 +1,140 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { GameEvent, SessionState, RoundResults } from '../types';
+
+interface UseGameSocketReturn {
+  state: SessionState | null;
+  results: RoundResults | null;
+  isConnected: boolean;
+  answerCount: number;
+  playerCount: number;
+  songData: { url: string; stopTs: string } | null;
+}
+
+export function useGameSocket(sessionCode: string): UseGameSocketReturn {
+  const [state, setState] = useState<SessionState | null>(null);
+  const [results, setResults] = useState<RoundResults | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [answerCount, setAnswerCount] = useState(0);
+  const [playerCount, setPlayerCount] = useState(0);
+  const [songData, setSongData] = useState<{ url: string; stopTs: string } | null>(null);
+  
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<number>();
+
+  const connect = useCallback(() => {
+    const isProd = import.meta.env.PROD;
+    const wsBase = isProd 
+      ? (import.meta.env.VITE_WS_URL || 'wss://quiz-party-api.herokuapp.com')
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+    const wsUrl = `${wsBase}/ws/session/${sessionCode}/`;
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setIsConnected(true);
+      console.log('WebSocket connected');
+    };
+
+    ws.onclose = () => {
+      setIsConnected(false);
+      console.log('WebSocket disconnected, reconnecting...');
+      reconnectTimeoutRef.current = window.setTimeout(connect, 2000);
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as GameEvent;
+        handleEvent(data);
+      } catch (e) {
+        console.error('Failed to parse message:', e);
+      }
+    };
+  }, [sessionCode]);
+
+  const handleEvent = (event: GameEvent) => {
+    console.log('Event:', event.type, event.data);
+
+    switch (event.type) {
+      case 'session_state':
+        setState(event.data);
+        setPlayerCount(event.data.player_count);
+        if (event.data.current_round) {
+          setAnswerCount(event.data.current_round.answer_count || 0);
+        }
+        break;
+
+      case 'player_joined':
+        setPlayerCount(event.data.player_count);
+        break;
+
+      case 'round_started':
+        setState(prev => prev ? {
+          ...prev,
+          status: 'question_active',
+          deadline_ts: event.data.deadline_ts,
+          current_round: {
+            id: event.data.round_id,
+            question_text: event.data.question_text,
+            options: event.data.options,
+            time_limit_seconds: event.data.time_limit_seconds,
+            status: 'active',
+            block_type: event.data.block_type as 'facts' | 'music',
+            order: 0,
+          },
+        } : null);
+        setAnswerCount(0);
+        setResults(null);
+        break;
+
+      case 'answer_received':
+        setAnswerCount(event.data.answer_count);
+        setPlayerCount(event.data.player_count);
+        break;
+
+      case 'round_ended':
+        setState(prev => prev ? { ...prev, status: 'reveal' } : null);
+        setResults(event.data);
+        break;
+
+      case 'play_song':
+        setState(prev => prev ? { ...prev, status: 'playing_song', song_stop_ts: event.data.song_stop_ts } : null);
+        setSongData({ url: event.data.song_url, stopTs: event.data.song_stop_ts });
+        break;
+
+      case 'stop_song':
+        setState(prev => prev ? { ...prev, status: 'reveal' } : null);
+        setSongData(null);
+        break;
+
+      case 'leaderboard_updated':
+        setState(prev => prev ? { ...prev, leaderboard: event.data.leaderboard } : null);
+        break;
+
+      case 'session_paused':
+        setState(prev => prev ? { ...prev, status: 'paused' } : null);
+        break;
+
+      case 'session_resumed':
+        // Request fresh state
+        wsRef.current?.send(JSON.stringify({ type: 'get_state' }));
+        break;
+    }
+  };
+
+  useEffect(() => {
+    connect();
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      wsRef.current?.close();
+    };
+  }, [connect]);
+
+  return { state, results, isConnected, answerCount, playerCount, songData };
+}
