@@ -5,6 +5,7 @@ import { QuestionScreen } from './screens/QuestionScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { MusicScreen } from './screens/MusicScreen';
 import { Wifi, WifiOff } from 'lucide-react';
+import { getBotLink } from './config';
 
 // Get session code from URL path: /tv/NATA or query: ?session=NATA
 function getSessionCode(): string {
@@ -42,7 +43,7 @@ function App() {
             title={state.title}
             sessionCode={sessionCode}
             playerCount={playerCount}
-            botLink={`t.me/quiz_party_bot?start=${sessionCode}`}
+            botLink={getBotLink(sessionCode)}
           />
         );
 

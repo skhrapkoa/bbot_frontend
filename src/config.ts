@@ -11,3 +11,7 @@ export const WS_BASE_URL = isProd
 
 export const getApiUrl = (path: string) => `${API_BASE_URL}${path}`;
 export const getWsUrl = (path: string) => `${WS_BASE_URL}${path}`;
+
+// Telegram Bot
+export const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME || 'nata_30_quiz_party_bot';
+export const getBotLink = (sessionCode: string) => `https://t.me/${BOT_USERNAME}?start=${sessionCode}`;
