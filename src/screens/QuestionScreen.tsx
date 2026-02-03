@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
+import { useAutoSpeakEdge } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
 
 interface QuestionScreenProps {
@@ -13,6 +14,10 @@ interface QuestionScreenProps {
 
 export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
+  
+  // Auto-читает вопрос голосом когда появляется новый раунд
+  // Использует Edge TTS через бэкенд (бесплатно, качественные русские голоса)
+  useAutoSpeakEdge(round.question_text, { voice: 'dmitry' });
 
   return (
     <div className="min-h-screen flex flex-col p-8">
