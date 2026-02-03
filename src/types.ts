@@ -2,6 +2,7 @@ export interface Player {
   name: string;
   score: number;
   avatar?: string;
+  photo_url?: string;
 }
 
 export interface Round {
@@ -13,6 +14,7 @@ export interface Round {
   answer_count?: number;
   block_type: 'facts' | 'music';
   order: number;
+  image_url?: string;
   song_url?: string;
   song_duration_seconds?: number;
 }
@@ -28,21 +30,30 @@ export interface SessionState {
   leaderboard: Player[];
 }
 
+export interface PlayerResult {
+  name: string;
+  photo_url?: string;
+}
+
 export interface RoundResults {
   round_id: number;
   question_text: string;
   options: string[];
   correct_option: number;
+  correct_answer_text: string;
   option_stats: Record<number, number>;
   total_answers: number;
   correct_count: number;
+  image_url?: string;
+  correct_players: PlayerResult[];
+  incorrect_players: PlayerResult[];
   leaderboard: Player[];
 }
 
 export type GameEvent =
   | { type: 'session_state'; data: SessionState }
   | { type: 'player_joined'; data: { player_name: string; player_count: number } }
-  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: string } }
+  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: string; image_url?: string } }
   | { type: 'answer_received'; data: { answer_count: number; player_count: number } }
   | { type: 'round_ended'; data: RoundResults }
   | { type: 'play_song'; data: { song_url: string; duration: number; song_stop_ts: string } }

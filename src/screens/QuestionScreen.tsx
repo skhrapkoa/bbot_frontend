@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
@@ -26,11 +26,12 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
   
   // Формируем полный текст: вопрос + варианты + "Время пошло"
   // Добавляем паузы через многоточия для естественного звучания
+  // Буквы пишем как произносятся, чтобы TTS не путал с союзами
   const fullSpeechText = useMemo(() => {
-    const letters = ['А', 'Б', 'В', 'Г'];
+    const letterNames = ['Вариант А', 'Вариант Бээ', 'Вариант Вээ', 'Вариант Гээ'];
     const optionsText = round.options
-      .map((opt, i) => `${letters[i] || i + 1}... ${opt}`)
-      .join('... ');
+      .map((opt, i) => `${letterNames[i] || `Вариант ${i + 1}`}, ${opt}`)
+      .join('. ');
     
     return `${round.question_text}... ${optionsText}... Время пошло! У вас 20 секунд.`;
   }, [round.question_text, round.options]);
@@ -105,15 +106,35 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center">
-        {/* Timer - показываем только после окончания озвучки */}
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: timerStarted ? 1 : 0 }}
-          transition={{ type: 'spring', stiffness: 200 }}
-          className="mb-8"
-        >
-          <Timer deadline={timerDeadline} size="large" />
-        </motion.div>
+        {/* Photo OR Timer - взаимозаменяемые */}
+        <div className="mb-8 relative" style={{ minHeight: '200px' }}>
+          <AnimatePresence mode="wait">
+            {!timerStarted && round.image_url ? (
+              <motion.div
+                key="photo"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.3 } }}
+                className="flex justify-center"
+              >
+                <img
+                  src={round.image_url}
+                  alt="Question"
+                  className="max-h-[40vh] max-w-full rounded-3xl shadow-2xl object-contain border-4 border-white/20"
+                />
+              </motion.div>
+            ) : timerStarted ? (
+              <motion.div
+                key="timer"
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 200 }}
+              >
+                <Timer deadline={timerDeadline} size="large" />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
 
         {/* Question */}
         <motion.h2

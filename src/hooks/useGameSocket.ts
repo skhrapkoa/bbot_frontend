@@ -85,6 +85,7 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
             status: 'active',
             block_type: event.data.block_type as 'facts' | 'music',
             order: 0,
+            image_url: event.data.image_url,
           },
         } : null);
         setAnswerCount(0);
