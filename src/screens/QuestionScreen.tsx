@@ -1,9 +1,14 @@
+import { useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
-import { useAutoSpeakEdge } from '../hooks/useEdgeTTS';
+import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
+
+// URL фоновой музыки для таймера (suspense/thinking music)
+// Можно заменить на свою ссылку
+const TIMER_MUSIC_URL = 'https://cdn.pixabay.com/audio/2022/10/18/audio_29166dacdc.mp3';
 
 interface QuestionScreenProps {
   round: Round;
@@ -14,10 +19,58 @@ interface QuestionScreenProps {
 
 export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
+  const { speak } = useEdgeTTS({ voice: 'dmitry' });
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  const spokenRoundRef = useRef<number | null>(null);
   
-  // Auto-читает вопрос голосом когда появляется новый раунд
-  // Использует Edge TTS через бэкенд (бесплатно, качественные русские голоса)
-  useAutoSpeakEdge(round.question_text, { voice: 'dmitry' });
+  // Формируем полный текст: вопрос + варианты + "Время пошло"
+  const fullSpeechText = useMemo(() => {
+    const letters = ['А', 'Б', 'В', 'Г'];
+    const optionsText = round.options
+      .map((opt, i) => `${letters[i] || i + 1}: ${opt.text}`)
+      .join('. ');
+    
+    return `${round.question_text}. ${optionsText}. Время пошло! У вас 20 секунд.`;
+  }, [round.question_text, round.options]);
+  
+  // Озвучка при смене раунда
+  useEffect(() => {
+    if (round.id !== spokenRoundRef.current) {
+      spokenRoundRef.current = round.id;
+      
+      // Остановить предыдущую музыку
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+      }
+      
+      // Озвучить вопрос
+      const timer = setTimeout(() => {
+        speak(fullSpeechText);
+        
+        // Запустить музыку через ~5 секунд (после озвучки)
+        const speechDuration = fullSpeechText.length * 80; // ~80ms на символ
+        setTimeout(() => {
+          musicRef.current = new Audio(TIMER_MUSIC_URL);
+          musicRef.current.volume = 0.3;
+          musicRef.current.loop = true;
+          musicRef.current.play().catch(() => {});
+        }, speechDuration);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [round.id, fullSpeechText, speak]);
+  
+  // Остановить музыку при уходе со страницы
+  useEffect(() => {
+    return () => {
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col p-8">
