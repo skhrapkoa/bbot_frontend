@@ -1,10 +1,11 @@
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameSocket } from './hooks/useGameSocket';
 import { LobbyScreen } from './screens/LobbyScreen';
 import { QuestionScreen } from './screens/QuestionScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { MusicScreen } from './screens/MusicScreen';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, Volume2 } from 'lucide-react';
 import { getBotLink } from './config';
 
 // Get session code from URL path: /tv/NATA or query: ?session=NATA
@@ -19,6 +20,20 @@ function getSessionCode(): string {
 function App() {
   const sessionCode = getSessionCode();
   const { state, results, isConnected, answerCount, playerCount, songData } = useGameSocket(sessionCode);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+
+  // Unlock audio on first user interaction
+  const unlockAudio = () => {
+    // Create and play a silent audio to unlock autoplay
+    const audio = new Audio();
+    audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAAAAA==';
+    audio.play().then(() => {
+      setAudioUnlocked(true);
+    }).catch(() => {
+      // Even if silent audio fails, mark as unlocked (user interacted)
+      setAudioUnlocked(true);
+    });
+  };
 
   // Loading state
   if (!state) {
@@ -123,6 +138,33 @@ function App() {
         return null;
     }
   };
+
+  // Show unlock overlay if audio not unlocked
+  if (!audioUnlocked) {
+    return (
+      <div 
+        className="min-h-screen flex flex-col items-center justify-center cursor-pointer"
+        onClick={unlockAudio}
+      >
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="glass rounded-3xl p-12 text-center"
+        >
+          <Volume2 className="w-24 h-24 mx-auto mb-6 text-pink-500" />
+          <h1 className="text-4xl font-bold mb-4">🎉 {state?.title || 'Quiz Party'}</h1>
+          <p className="text-2xl text-white/70 mb-6">Нажми чтобы включить звук</p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-8 py-4 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl text-2xl font-bold"
+          >
+            ▶️ Начать
+          </motion.button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <>
