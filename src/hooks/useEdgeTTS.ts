@@ -11,36 +11,48 @@ export function useEdgeTTS(options: EdgeTTSOptions = {}) {
   const { voice = 'dmitry' } = options;
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const speak = useCallback(async (text: string) => {
-    if (!text.trim()) return;
-
-    // Остановить предыдущее аудио
-    stop();
-
-    try {
-      // Формируем URL с параметрами
-      const params = new URLSearchParams({
-        text: text.trim(),
-        voice,
-      });
-      
-      const audioUrl = `${API_BASE_URL}/api/tts/?${params}`;
-      
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.play();
-    } catch (error) {
-      console.error('Edge TTS error:', error);
-      // Fallback на Web Speech API
-      fallbackSpeak(text);
-    }
-  }, [voice]);
-
   const stop = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
   }, []);
+
+  // speak возвращает Promise который резолвится когда аудио закончилось
+  const speak = useCallback(async (text: string): Promise<void> => {
+    if (!text.trim()) return;
+
+    // Остановить предыдущее аудио
+    stop();
+
+    return new Promise((resolve) => {
+      try {
+        // Формируем URL с параметрами
+        const params = new URLSearchParams({
+          text: text.trim(),
+          voice,
+        });
+        
+        const audioUrl = `${API_BASE_URL}/api/tts/?${params}`;
+        
+        audioRef.current = new Audio(audioUrl);
+        
+        // Резолвим когда аудио закончилось
+        audioRef.current.onended = () => resolve();
+        audioRef.current.onerror = () => resolve();
+        
+        audioRef.current.play().catch(() => {
+          fallbackSpeak(text);
+          // Примерное время для fallback
+          setTimeout(resolve, text.length * 80);
+        });
+      } catch (error) {
+        console.error('Edge TTS error:', error);
+        fallbackSpeak(text);
+        setTimeout(resolve, text.length * 80);
+      }
+    });
+  }, [voice, stop]);
 
   // Cleanup
   useEffect(() => {

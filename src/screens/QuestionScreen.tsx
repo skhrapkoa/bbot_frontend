@@ -44,18 +44,16 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
         musicRef.current = null;
       }
       
-      // Озвучить вопрос
-      const timer = setTimeout(() => {
-        speak(fullSpeechText);
+      // Озвучить вопрос, затем запустить музыку
+      const timer = setTimeout(async () => {
+        // Ждём пока озвучка закончится
+        await speak(fullSpeechText);
         
-        // Запустить музыку через ~5 секунд (после озвучки)
-        const speechDuration = fullSpeechText.length * 80; // ~80ms на символ
-        setTimeout(() => {
-          musicRef.current = new Audio(TIMER_MUSIC_URL);
-          musicRef.current.volume = 0.3;
-          musicRef.current.loop = true;
-          musicRef.current.play().catch(() => {});
-        }, speechDuration);
+        // Запускаем музыку сразу после окончания речи
+        musicRef.current = new Audio(TIMER_MUSIC_URL);
+        musicRef.current.volume = 0.3;
+        musicRef.current.loop = true;
+        musicRef.current.play().catch(() => {});
       }, 300);
       
       return () => clearTimeout(timer);

@@ -10,7 +10,7 @@ interface OptionCardProps {
   totalVotes?: number;
 }
 
-const LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const LABELS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
 const COLORS = [
   'from-rose-500 to-pink-600',
   'from-blue-500 to-cyan-600',
