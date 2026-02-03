@@ -23,13 +23,14 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
   const spokenRoundRef = useRef<number | null>(null);
   
   // Формируем полный текст: вопрос + варианты + "Время пошло"
+  // Добавляем паузы через многоточия для естественного звучания
   const fullSpeechText = useMemo(() => {
     const letters = ['А', 'Б', 'В', 'Г'];
     const optionsText = round.options
-      .map((opt, i) => `${letters[i] || i + 1}: ${opt}`)
-      .join('. ');
+      .map((opt, i) => `${letters[i] || i + 1}... ${opt}`)
+      .join('... ');
     
-    return `${round.question_text}. ${optionsText}. Время пошло! У вас 20 секунд.`;
+    return `${round.question_text}... ${optionsText}... Время пошло! У вас 20 секунд.`;
   }, [round.question_text, round.options]);
   
   // Озвучка при смене раунда
