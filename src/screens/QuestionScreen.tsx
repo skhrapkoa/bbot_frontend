@@ -6,9 +6,8 @@ import { PlayerCounter } from '../components/PlayerCounter';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
 
-// URL фоновой музыки для таймера (suspense/thinking music)
-// Можно заменить на свою ссылку
-const TIMER_MUSIC_URL = 'https://cdn.pixabay.com/audio/2022/10/18/audio_29166dacdc.mp3';
+// URL фоновой музыки для таймера (Who Wants to Be a Millionaire style)
+const TIMER_MUSIC_URL = '/audio/timer-music.mp3';
 
 interface QuestionScreenProps {
   round: Round;
