@@ -26,7 +26,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
   const fullSpeechText = useMemo(() => {
     const letters = ['А', 'Б', 'В', 'Г'];
     const optionsText = round.options
-      .map((opt, i) => `${letters[i] || i + 1}: ${opt.text}`)
+      .map((opt, i) => `${letters[i] || i + 1}: ${opt}`)
       .join('. ');
     
     return `${round.question_text}. ${optionsText}. Время пошло! У вас 20 секунд.`;
