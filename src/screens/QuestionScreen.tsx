@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
@@ -21,6 +21,8 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
   const { speak } = useEdgeTTS({ voice: 'dmitry' });
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
+  const [timerStarted, setTimerStarted] = useState(false);
+  const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
   
   // Формируем полный текст: вопрос + варианты + "Время пошло"
   // Добавляем паузы через многоточия для естественного звучания
@@ -33,6 +35,14 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
     return `${round.question_text}... ${optionsText}... Время пошло! У вас 20 секунд.`;
   }, [round.question_text, round.options]);
   
+  // Сброс при смене раунда
+  useEffect(() => {
+    if (round.id !== spokenRoundRef.current) {
+      setTimerStarted(false);
+      setTimerDeadline(null);
+    }
+  }, [round.id]);
+
   // Озвучка при смене раунда
   useEffect(() => {
     if (round.id !== spokenRoundRef.current) {
@@ -44,10 +54,16 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
         musicRef.current = null;
       }
       
-      // Озвучить вопрос, затем запустить музыку
+      // Озвучить вопрос, затем запустить музыку и таймер
       const timer = setTimeout(async () => {
         // Ждём пока озвучка закончится
         await speak(fullSpeechText);
+        
+        // Устанавливаем дедлайн на 20 секунд от сейчас
+        const now = new Date();
+        now.setSeconds(now.getSeconds() + 20);
+        setTimerDeadline(now.toISOString());
+        setTimerStarted(true);
         
         // Запускаем музыку сразу после окончания речи
         musicRef.current = new Audio(TIMER_MUSIC_URL);
@@ -89,14 +105,14 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center">
-        {/* Timer */}
+        {/* Timer - показываем только после окончания озвучки */}
         <motion.div
           initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
+          animate={{ scale: timerStarted ? 1 : 0 }}
           transition={{ type: 'spring', stiffness: 200 }}
           className="mb-8"
         >
-          <Timer deadline={deadline} size="large" />
+          <Timer deadline={timerDeadline} size="large" />
         </motion.div>
 
         {/* Question */}
