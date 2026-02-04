@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
-import { Avatar } from '../components/Avatar';
-import { useAvatarVideo } from '../hooks/useAvatarVideo';
+import { useHedraTTS } from '../hooks/useHedraTTS';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
 
@@ -18,29 +17,21 @@ interface QuestionScreenProps {
   playerCount: number;
 }
 
-// Проверяем включен ли аватар (D-ID или Replicate)
-const AVATAR_ENABLED = !!(import.meta.env.VITE_DID_API_KEY || import.meta.env.VITE_REPLICATE_API_KEY);
-
 export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
   
-  // TTS: используем аватар если настроен, иначе EdgeTTS
+  // Hedra TTS (приоритет) и EdgeTTS как fallback
+  const hedra = useHedraTTS();
   const { speak: edgeSpeak } = useEdgeTTS({ voice: 'dmitry' });
-  const avatar = useAvatarVideo({ fallbackToAudio: true });
   
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
   
-  // Выбираем метод озвучки
-  const speak = AVATAR_ENABLED ? avatar.speak : edgeSpeak;
-  
-  // Формируем полный текст: вопрос + варианты + "Время пошло"
-  // Добавляем паузы через многоточия для естественного звучания
-  // Буквы пишем как произносятся, чтобы TTS не путал с союзами
+  // Формируем полный текст для озвучки
   const fullSpeechText = useMemo(() => {
-    const letterNames = ['Вариант А', 'Вариант Бээ', 'Вариант Вээ', 'Вариант Гээ'];
+    const letterNames = ['Вариант А', 'Вариант Бэ', 'Вариант Вэ', 'Вариант Гэ'];
     const optionsText = round.options
       .map((opt, i) => `${letterNames[i] || `Вариант ${i + 1}`}, ${opt}`)
       .join('. ');
@@ -69,8 +60,21 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
       
       // Озвучить вопрос, затем запустить музыку и таймер
       const timer = setTimeout(async () => {
-        // Ждём пока озвучка закончится
-        await speak(fullSpeechText);
+        try {
+          // Пробуем Hedra TTS (если настроен)
+          if (hedra.isConfigured) {
+            console.log('Using Hedra TTS...');
+            await hedra.speak(fullSpeechText);
+          } else {
+            // Fallback на EdgeTTS
+            console.log('Hedra not configured, using EdgeTTS');
+            await edgeSpeak(fullSpeechText);
+          }
+        } catch (e) {
+          // Если Hedra не сработал - fallback на EdgeTTS
+          console.warn('Hedra TTS failed, using EdgeTTS fallback:', e);
+          await edgeSpeak(fullSpeechText);
+        }
         
         // Устанавливаем дедлайн на 20 секунд от сейчас
         const now = new Date();
@@ -87,7 +91,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
       
       return () => clearTimeout(timer);
     }
-  }, [round.id, fullSpeechText, speak]);
+  }, [round.id, fullSpeechText, hedra, edgeSpeak]);
   
   // Остановить музыку при уходе со страницы
   useEffect(() => {
@@ -101,22 +105,6 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
 
   return (
     <div className="min-h-screen flex flex-col p-8">
-      {/* Avatar - показываем только если D-ID включен */}
-      {AVATAR_ENABLED && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="fixed bottom-8 left-8 z-50"
-        >
-          <Avatar
-            isPlaying={avatar.isPlaying}
-            isLoading={avatar.isLoading}
-            videoRef={avatar.setVideoElement}
-            size="medium"
-          />
-        </motion.div>
-      )}
-
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <motion.div

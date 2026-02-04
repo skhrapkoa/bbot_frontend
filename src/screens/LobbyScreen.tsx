@@ -1,6 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCode } from '../components/QRCode';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
+
+// Import all lobby music files
+const musicModules = import.meta.glob('/public/audio/lobby/*.mp3', { eager: true, query: '?url', import: 'default' });
 
 interface LobbyScreenProps {
   title: string;
@@ -23,7 +26,9 @@ const photoModules = import.meta.glob('/public/photos/*.{jpg,jpeg,png,webp}', { 
 
 export function LobbyScreen({ title, playerCount, botLink, registeredNames = [], removedGuests = [] }: LobbyScreenProps) {
   const [photos, setPhotos] = useState<string[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Load photos
   useEffect(() => {
     const photoUrls = Object.values(photoModules) as string[];
     if (photoUrls.length > 0) {
@@ -31,6 +36,87 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
       const shuffled = duplicated.sort(() => Math.random() - 0.5);
       setPhotos(shuffled);
     }
+  }, []);
+
+  // Play lobby music - random shuffle playlist, switch before chorus (~40s)
+  useEffect(() => {
+    const musicUrls = Object.values(musicModules) as string[];
+    if (musicUrls.length === 0) return;
+
+    let currentIndex = -1;
+    let shuffled = [...musicUrls].sort(() => Math.random() - 0.5);
+    let skipTimer: ReturnType<typeof setTimeout> | null = null;
+    
+    const audio = new Audio();
+    audio.volume = 0.4;
+    audioRef.current = audio;
+
+    const playNext = () => {
+      if (skipTimer) clearTimeout(skipTimer);
+      
+      currentIndex++;
+      // Reshuffle when playlist ends
+      if (currentIndex >= shuffled.length) {
+        shuffled = [...musicUrls].sort(() => Math.random() - 0.5);
+        currentIndex = 0;
+      }
+      audio.src = shuffled[currentIndex];
+      
+      // Fade in
+      audio.volume = 0;
+      audio.play().catch(() => {});
+      const fadeIn = setInterval(() => {
+        if (audio.volume < 0.35) {
+          audio.volume = Math.min(0.4, audio.volume + 0.02);
+        } else {
+          clearInterval(fadeIn);
+          audio.volume = 0.4;
+        }
+      }, 50);
+      
+      // Skip to next track after ~1:30 (85-95 seconds)
+      const skipTime = 85000 + Math.random() * 10000;
+      skipTimer = setTimeout(() => {
+        // Fade out
+        const fadeOut = setInterval(() => {
+          if (audio.volume > 0.02) {
+            audio.volume = Math.max(0, audio.volume - 0.02);
+          } else {
+            clearInterval(fadeOut);
+            playNext();
+          }
+        }, 50);
+      }, skipTime);
+    };
+
+    audio.addEventListener('ended', playNext);
+
+    // Try autoplay
+    const startPlaylist = async () => {
+      playNext();
+      try {
+        await audio.play();
+      } catch {
+        // Autoplay blocked - wait for user interaction
+        const handleInteraction = () => {
+          audio.play().catch(() => {});
+          document.removeEventListener('click', handleInteraction);
+          document.removeEventListener('keydown', handleInteraction);
+        };
+        document.addEventListener('click', handleInteraction);
+        document.addEventListener('keydown', handleInteraction);
+      }
+    };
+
+    startPlaylist();
+
+    return () => {
+      if (skipTimer) clearTimeout(skipTimer);
+      audio.removeEventListener('ended', playNext);
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
+    };
   }, []);
 
   const remainingGuests = useMemo(() => {
