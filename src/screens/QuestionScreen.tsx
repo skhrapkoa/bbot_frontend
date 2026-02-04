@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
+import { Avatar } from '../components/Avatar';
+import { useAvatarVideo } from '../hooks/useAvatarVideo';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
 
@@ -16,13 +18,23 @@ interface QuestionScreenProps {
   playerCount: number;
 }
 
+// Проверяем включен ли D-ID аватар
+const AVATAR_ENABLED = !!import.meta.env.VITE_DID_API_KEY;
+
 export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
-  const { speak } = useEdgeTTS({ voice: 'dmitry' });
+  
+  // TTS: используем аватар если настроен, иначе EdgeTTS
+  const { speak: edgeSpeak } = useEdgeTTS({ voice: 'dmitry' });
+  const avatar = useAvatarVideo({ fallbackToAudio: true });
+  
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
+  
+  // Выбираем метод озвучки
+  const speak = AVATAR_ENABLED ? avatar.speak : edgeSpeak;
   
   // Формируем полный текст: вопрос + варианты + "Время пошло"
   // Добавляем паузы через многоточия для естественного звучания
@@ -89,6 +101,22 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
 
   return (
     <div className="min-h-screen flex flex-col p-8">
+      {/* Avatar - показываем только если D-ID включен */}
+      {AVATAR_ENABLED && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="fixed bottom-8 left-8 z-50"
+        >
+          <Avatar
+            isPlaying={avatar.isPlaying}
+            isLoading={avatar.isLoading}
+            videoRef={avatar.setVideoElement}
+            size="medium"
+          />
+        </motion.div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <motion.div

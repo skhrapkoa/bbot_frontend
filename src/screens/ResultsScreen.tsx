@@ -3,8 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { OptionCard } from '../components/OptionCard';
 import { Leaderboard } from '../components/Leaderboard';
 import { Confetti } from '../components/Confetti';
+import { Avatar } from '../components/Avatar';
+import { useAvatarVideo } from '../hooks/useAvatarVideo';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { RoundResults, PlayerResult } from '../types';
+
+// Проверяем включен ли D-ID аватар
+const AVATAR_ENABLED = !!import.meta.env.VITE_DID_API_KEY;
 
 interface ResultsScreenProps {
   results: RoundResults;
@@ -109,7 +114,11 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     incorrect_players = []
   } = results;
   
-  const { speak } = useEdgeTTS({ voice: 'dmitry' });
+  // TTS: используем аватар если настроен, иначе EdgeTTS
+  const { speak: edgeSpeak } = useEdgeTTS({ voice: 'dmitry' });
+  const avatar = useAvatarVideo({ fallbackToAudio: true });
+  const speak = AVATAR_ENABLED ? avatar.speak : edgeSpeak;
+  
   const spokenRef = useRef<number | null>(null);
   const [phase, setPhase] = useState<'answer' | 'correct' | 'incorrect' | 'done'>('answer');
 

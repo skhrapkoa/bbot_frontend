@@ -5,6 +5,8 @@ export interface Player {
   photo_url?: string;
 }
 
+export type BlockType = 'facts' | 'music' | 'photo_fun' | 'guess_word';
+
 export interface Round {
   id: number;
   question_text: string;
@@ -12,11 +14,15 @@ export interface Round {
   time_limit_seconds: number;
   status: 'waiting' | 'active' | 'ended';
   answer_count?: number;
-  block_type: 'facts' | 'music';
+  block_type: BlockType;
   order: number;
+  points: number;
   image_url?: string;
+  image_urls?: string[];  // for "Где логика?" (multiple images)
   song_url?: string;
   song_duration_seconds?: number;
+  background_music_url?: string;  // for photo_fun blocks
+  background_music_duration?: number;
 }
 
 export interface SessionState {
@@ -53,7 +59,7 @@ export interface RoundResults {
 export type GameEvent =
   | { type: 'session_state'; data: SessionState }
   | { type: 'player_joined'; data: { player_name: string; player_count: number } }
-  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: string; image_url?: string } }
+  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: BlockType; points: number; image_url?: string; image_urls?: string[]; background_music_url?: string; background_music_duration?: number } }
   | { type: 'answer_received'; data: { answer_count: number; player_count: number } }
   | { type: 'round_ended'; data: RoundResults }
   | { type: 'play_song'; data: { song_url: string; duration: number; song_stop_ts: string } }
