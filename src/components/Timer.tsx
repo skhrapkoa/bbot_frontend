@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TimerProps {
   deadline: string | null;
   size?: 'large' | 'medium';
+  onEnd?: () => void;
 }
 
-export function Timer({ deadline, size = 'large' }: TimerProps) {
+export function Timer({ deadline, size = 'large', onEnd }: TimerProps) {
   const [seconds, setSeconds] = useState<number | null>(null);
+  const endedRef = useRef(false);
 
   useEffect(() => {
     if (!deadline) {
       setSeconds(null);
+      endedRef.current = false;
       return;
     }
 
@@ -20,12 +23,18 @@ export function Timer({ deadline, size = 'large' }: TimerProps) {
       const end = new Date(deadline).getTime();
       const diff = Math.max(0, Math.floor((end - now) / 1000));
       setSeconds(diff);
+      
+      // Вызываем onEnd когда таймер достигает 0 (только один раз)
+      if (diff === 0 && !endedRef.current) {
+        endedRef.current = true;
+        onEnd?.();
+      }
     };
 
     update();
     const interval = setInterval(update, 100);
     return () => clearInterval(interval);
-  }, [deadline]);
+  }, [deadline, onEnd]);
 
   if (seconds === null) return null;
 

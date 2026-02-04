@@ -136,12 +136,12 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     spokenRef.current = results.round_id;
     
     const runSequence = async () => {
-      // Фаза 1: Озвучить правильный ответ
+      // Фаза 1: Озвучить что время вышло и правильный ответ
       setPhase('answer');
-      await speak(`Правильный ответ: ${correct_answer_text}`);
+      await speak(`Время вышло! Правильный ответ: ${correct_answer_text}`);
       
       // Небольшая пауза
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1000));
       
       // Фаза 2: Показать лидерборд и озвучить лидера если он один
       setPhase('correct');
@@ -152,14 +152,11 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
         
         // Если лидер единоличный (отрыв > 0 или второго нет)
         if (!secondPlace || leader.score > secondPlace.score) {
-          await speak(`Лидирует ${leader.name}!`);
-          await new Promise(r => setTimeout(r, 500));
+          await speak(`Сейчас лидирует ${leader.name}!`);
         }
       }
       
-      // Фаза 3: Переходим к следующему
-      await speak(`Переходим к следующему вопросу.`);
-      
+      // Не говорим "переходим к следующему" - ждём админа
       setPhase('done');
     };
     

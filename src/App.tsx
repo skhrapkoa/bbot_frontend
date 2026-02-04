@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameSocket } from './hooks/useGameSocket';
 import { LobbyScreen } from './screens/LobbyScreen';
@@ -7,7 +7,7 @@ import { ResultsScreen } from './screens/ResultsScreen';
 import { MusicScreen } from './screens/MusicScreen';
 import { PromoScreen } from './screens/PromoScreen';
 import { Wifi, WifiOff } from 'lucide-react';
-import { getBotLink } from './config';
+import { getBotLink, getApiUrl } from './config';
 
 // Get session code from URL path: /tv/NATA or query: ?session=NATA
 function getSessionCode(): string {
@@ -41,6 +41,19 @@ function App() {
     setShowPromo(false);
     setPromoCompleted(true);
   };
+
+  // Автоматическое завершение раунда когда таймер истекает
+  const handleTimerEnd = useCallback(async () => {
+    try {
+      await fetch(getApiUrl(`/api/host/${sessionCode}/end_round/`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      console.log('Round ended by timer');
+    } catch (e) {
+      console.error('Failed to end round:', e);
+    }
+  }, [sessionCode]);
 
   // Auto-unlock audio on first click anywhere
   useEffect(() => {
@@ -92,6 +105,7 @@ function App() {
             answerCount={answerCount}
             playerCount={playerCount}
             onTimerStart={() => send({ type: 'timer_started', round_id: state.current_round?.id })}
+            onTimerEnd={handleTimerEnd}
           />
         );
 

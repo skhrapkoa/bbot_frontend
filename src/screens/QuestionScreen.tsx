@@ -16,9 +16,10 @@ interface QuestionScreenProps {
   answerCount: number;
   playerCount: number;
   onTimerStart?: () => void;
+  onTimerEnd?: () => void;
 }
 
-export function QuestionScreen({ round, deadline, answerCount, playerCount, onTimerStart }: QuestionScreenProps) {
+export function QuestionScreen({ round, deadline, answerCount, playerCount, onTimerStart, onTimerEnd }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
   
   // Hedra TTS (голос Наташи) с fallback на EdgeTTS
@@ -33,6 +34,9 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
   
+  // Время на ответ - хардкод 15 секунд
+  const timeLimit = 15;
+  
   // Формируем полный текст для озвучки (без "Вариант" для скорости)
   const fullSpeechText = useMemo(() => {
     const letters = ['А', 'Б', 'В', 'Г'];
@@ -40,8 +44,8 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       .map((opt, i) => `${letters[i] || i + 1}. ${opt}`)
       .join('. ');
     
-    return `${round.question_text}... ${optionsText}... Время пошло!`;
-  }, [round.question_text, round.options]);
+    return `${round.question_text}... ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
+  }, [round.question_text, round.options, timeLimit]);
   
   // Сброс при смене раунда
   useEffect(() => {
@@ -70,9 +74,9 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
           console.warn('TTS failed:', e);
         }
         
-        // Устанавливаем дедлайн на 20 секунд от сейчас
+        // Устанавливаем дедлайн на timeLimit секунд от сейчас
         const now = new Date();
-        now.setSeconds(now.getSeconds() + 20);
+        now.setSeconds(now.getSeconds() + timeLimit);
         setTimerDeadline(now.toISOString());
         setTimerStarted(true);
         
@@ -143,7 +147,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', stiffness: 200 }}
               >
-                <Timer deadline={timerDeadline} size="large" />
+                <Timer deadline={timerDeadline} size="large" onEnd={onTimerEnd} />
               </motion.div>
             ) : null}
           </AnimatePresence>
