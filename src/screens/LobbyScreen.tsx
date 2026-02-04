@@ -33,7 +33,12 @@ const photoModules = import.meta.glob('/public/photos/*.{jpg,jpeg,png,webp}', { 
 
 export function LobbyScreen({ title, playerCount, botLink, registeredNames = [], removedGuests = [] }: LobbyScreenProps) {
   const [photos, setPhotos] = useState<string[]>([]);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [showMusicButton, setShowMusicButton] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const skipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shuffledRef = useRef<string[]>([]);
+  const currentIndexRef = useRef(-1);
 
   // Load photos
   useEffect(() => {
@@ -45,85 +50,59 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
     }
   }, []);
 
-  // Play lobby music - random shuffle playlist, switch before chorus (~40s)
+  // Initialize audio
   useEffect(() => {
-    const musicUrls = LOBBY_MUSIC;
-    if (musicUrls.length === 0) return;
-
-    let currentIndex = -1;
-    let shuffled = [...musicUrls].sort(() => Math.random() - 0.5);
-    let skipTimer: ReturnType<typeof setTimeout> | null = null;
-    
+    shuffledRef.current = [...LOBBY_MUSIC].sort(() => Math.random() - 0.5);
     const audio = new Audio();
     audio.volume = 0.4;
     audioRef.current = audio;
 
-    const playNext = () => {
-      if (skipTimer) clearTimeout(skipTimer);
-      
-      currentIndex++;
-      // Reshuffle when playlist ends
-      if (currentIndex >= shuffled.length) {
-        shuffled = [...musicUrls].sort(() => Math.random() - 0.5);
-        currentIndex = 0;
-      }
-      audio.src = shuffled[currentIndex];
-      
-      // Fade in
-      audio.volume = 0;
-      audio.play().catch(() => {});
-      const fadeIn = setInterval(() => {
-        if (audio.volume < 0.35) {
-          audio.volume = Math.min(0.4, audio.volume + 0.02);
-        } else {
-          clearInterval(fadeIn);
-          audio.volume = 0.4;
-        }
-      }, 50);
-      
-      // Skip to next track after ~1:30 (85-95 seconds)
-      const skipTime = 85000 + Math.random() * 10000;
-      skipTimer = setTimeout(() => {
-        // Fade out
-        const fadeOut = setInterval(() => {
-          if (audio.volume > 0.02) {
-            audio.volume = Math.max(0, audio.volume - 0.02);
-          } else {
-            clearInterval(fadeOut);
-            playNext();
-          }
-        }, 50);
-      }, skipTime);
-    };
-
-    audio.addEventListener('ended', playNext);
-
-    // Try autoplay
-    const startPlaylist = async () => {
-      playNext();
-      try {
-        await audio.play();
-      } catch {
-        // Autoplay blocked - wait for user interaction
-        const handleInteraction = () => {
-          audio.play().catch(() => {});
-          document.removeEventListener('click', handleInteraction);
-          document.removeEventListener('keydown', handleInteraction);
-        };
-        document.addEventListener('click', handleInteraction);
-        document.addEventListener('keydown', handleInteraction);
-      }
-    };
-
-    startPlaylist();
-
     return () => {
-      if (skipTimer) clearTimeout(skipTimer);
-      audio.removeEventListener('ended', playNext);
+      if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
       audio.pause();
       audio.src = '';
-      audioRef.current = null;
     };
+  }, []);
+
+  // Function to play next track
+  const playNext = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
+    
+    currentIndexRef.current++;
+    if (currentIndexRef.current >= shuffledRef.current.length) {
+      shuffledRef.current = [...LOBBY_MUSIC].sort(() => Math.random() - 0.5);
+      currentIndexRef.current = 0;
+    }
+    
+    audio.src = shuffledRef.current[currentIndexRef.current];
+    audio.volume = 0.4;
+    audio.play().then(() => {
+      setMusicPlaying(true);
+      setShowMusicButton(false);
+    }).catch(console.error);
+    
+    // Skip to next track after 90 seconds
+    skipTimerRef.current = setTimeout(() => {
+      playNext();
+    }, 90000);
+  };
+
+  // Start music on user click
+  const startMusic = () => {
+    playNext();
+  };
+
+  // Handle track end
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    const handleEnded = () => playNext();
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
   }, []);
 
   const remainingGuests = useMemo(() => {
@@ -271,6 +250,20 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
             </motion.div>
           ))}
         </div>
+      )}
+
+      {/* Music button */}
+      {showMusicButton && (
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={startMusic}
+          className="fixed bottom-8 right-8 z-50 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-2xl font-bold px-6 py-4 rounded-full shadow-2xl flex items-center gap-3"
+        >
+          🎵 Включить музыку
+        </motion.button>
       )}
     </div>
   );
