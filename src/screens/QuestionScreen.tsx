@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
+import { useHedraTTS } from '../hooks/useHedraTTS';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
 
@@ -19,8 +20,12 @@ interface QuestionScreenProps {
 export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
   
-  // EdgeTTS для озвучки вопросов
-  const { speak } = useEdgeTTS({ voice: 'dmitry' });
+  // Hedra TTS (голос Наташи) с fallback на EdgeTTS
+  const hedraTTS = useHedraTTS();
+  const edgeTTS = useEdgeTTS({ voice: 'dmitry' });
+  
+  // Используем Hedra если настроен, иначе Edge
+  const speak = hedraTTS.isConfigured ? hedraTTS.speak : edgeTTS.speak;
   
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
