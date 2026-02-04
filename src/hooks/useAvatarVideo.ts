@@ -8,10 +8,11 @@ const ELEVENLABS_VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID;
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 // Какой провайдер использовать
+// Приоритет: backend (через API) > did > replicate (напрямую не работает из браузера)
 const PROVIDER: 'did' | 'replicate' | 'backend' | null = 
+  API_URL ? 'backend' :  // Replicate через бэкенд - работает!
   D_ID_API_KEY ? 'did' : 
-  REPLICATE_API_KEY ? 'replicate' : 
-  API_URL ? 'backend' : null;
+  null;
 
 // Стандартные фразы с прекэшированными видео
 const CACHED_VIDEOS: Record<string, string> = {
@@ -187,7 +188,10 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    if (!AVATAR_IMAGE_URL) throw new Error('Avatar image not configured');
+    // Для backend провайдера изображение настроено на сервере
+    if (PROVIDER !== 'backend' && !AVATAR_IMAGE_URL) {
+      throw new Error('Avatar image not configured');
+    }
 
     switch (PROVIDER) {
       case 'did':
