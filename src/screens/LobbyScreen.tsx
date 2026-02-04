@@ -10,6 +10,13 @@ interface LobbyScreenProps {
   botLink: string;
 }
 
+// Ожидаемые гости
+const EXPECTED_GUESTS = [
+  'Папа', 'Мама', 'Брат Коля', 'Ваня', 'Евгений', 'Евгения', 'Гриша',
+  'Таня', 'Тетя Таня', 'Дядя Коля', 'Алена', 'Даник', 'Ульяна',
+  'Матвей', 'Маша', 'Андрей', 'Елена', 'Ксюша'
+];
+
 export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -99,9 +106,32 @@ export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
-            className="flex justify-center"
+            className="flex justify-center mb-6"
           >
             <PlayerCounter count={playerCount} />
+          </motion.div>
+
+          {/* Expected guests */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1 }}
+            className="text-center"
+          >
+            <p className="text-white/60 text-sm mb-3">🔍 Найди себя в списке:</p>
+            <div className="flex flex-wrap justify-center gap-2 max-w-md">
+              {EXPECTED_GUESTS.map((name, i) => (
+                <motion.span
+                  key={name}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1.1 + i * 0.05 }}
+                  className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80 border border-white/20"
+                >
+                  {name}
+                </motion.span>
+              ))}
+            </div>
           </motion.div>
         </div>
 
@@ -109,7 +139,7 @@ export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
+          transition={{ delay: 2 }}
           className="mt-6 flex items-center gap-3 text-white/70"
         >
           <motion.span
