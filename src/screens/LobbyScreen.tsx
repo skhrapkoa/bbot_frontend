@@ -35,7 +35,6 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
   const [photos, setPhotos] = useState<string[]>([]);
   const [musicStarted, setMusicStarted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const skipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shuffledRef = useRef<string[]>([]);
   const currentIndexRef = useRef(-1);
 
@@ -49,12 +48,10 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
     }
   }, []);
 
-  // Function to play next track with fade
+  // Function to play next track with fade (full song, no skip)
   const playNext = () => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
     
     currentIndexRef.current++;
     if (currentIndexRef.current >= shuffledRef.current.length) {
@@ -76,19 +73,6 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
         }
       }, 50);
     }).catch(() => {});
-    
-    // Skip to next track after ~90 seconds with fade out
-    skipTimerRef.current = setTimeout(() => {
-      // Fade out
-      const fadeOut = setInterval(() => {
-        if (audio.volume > 0.02) {
-          audio.volume = Math.max(0, audio.volume - 0.02);
-        } else {
-          clearInterval(fadeOut);
-          playNext();
-        }
-      }, 50);
-    }, 88000);
   };
 
   // Initialize audio and try autoplay
@@ -119,18 +103,6 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
           audio.volume = 0.4;
         }
       }, 50);
-      
-      // Set timer for next track
-      skipTimerRef.current = setTimeout(() => {
-        const fadeOut = setInterval(() => {
-          if (audio.volume > 0.02) {
-            audio.volume = Math.max(0, audio.volume - 0.02);
-          } else {
-            clearInterval(fadeOut);
-            playNext();
-          }
-        }, 50);
-      }, 88000);
     }).catch(() => {
       // Autoplay blocked - start on any interaction
       const startOnInteraction = () => {
@@ -147,7 +119,6 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
     });
 
     return () => {
-      if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
       audio.removeEventListener('ended', handleEnded);
       audio.pause();
       audio.src = '';
