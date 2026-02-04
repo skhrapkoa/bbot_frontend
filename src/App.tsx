@@ -19,7 +19,7 @@ function getSessionCode(): string {
 
 function App() {
   const sessionCode = getSessionCode();
-  const { state, results, isConnected, answerCount, playerCount, songData } = useGameSocket(sessionCode);
+  const { state, results, isConnected, answerCount, playerCount, songData, playerNames } = useGameSocket(sessionCode);
 
   // Auto-unlock audio on first click anywhere
   useEffect(() => {
@@ -57,6 +57,7 @@ function App() {
             sessionCode={sessionCode}
             playerCount={playerCount}
             botLink={getBotLink(sessionCode)}
+            registeredNames={playerNames}
           />
         );
 

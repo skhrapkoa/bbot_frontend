@@ -8,6 +8,7 @@ interface UseGameSocketReturn {
   answerCount: number;
   playerCount: number;
   songData: { url: string; stopTs: string } | null;
+  playerNames: string[];
 }
 
 export function useGameSocket(sessionCode: string): UseGameSocketReturn {
@@ -17,6 +18,7 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
   const [answerCount, setAnswerCount] = useState(0);
   const [playerCount, setPlayerCount] = useState(0);
   const [songData, setSongData] = useState<{ url: string; stopTs: string } | null>(null);
+  const [playerNames, setPlayerNames] = useState<string[]>([]);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number>();
@@ -63,6 +65,10 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
       case 'session_state':
         setState(event.data);
         setPlayerCount(event.data.player_count);
+        // Собираем имена из leaderboard
+        if (event.data.leaderboard) {
+          setPlayerNames(event.data.leaderboard.map((p: { name: string }) => p.name));
+        }
         if (event.data.current_round) {
           setAnswerCount(event.data.current_round.answer_count || 0);
         }
@@ -70,6 +76,10 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
 
       case 'player_joined':
         setPlayerCount(event.data.player_count);
+        // Добавляем имя нового игрока
+        if (event.data.player_name) {
+          setPlayerNames(prev => [...prev, event.data.player_name]);
+        }
         break;
 
       case 'round_started':
@@ -137,5 +147,5 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
     };
   }, [connect]);
 
-  return { state, results, isConnected, answerCount, playerCount, songData };
+  return { state, results, isConnected, answerCount, playerCount, songData, playerNames };
 }
