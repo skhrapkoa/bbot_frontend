@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameSocket } from './hooks/useGameSocket';
 import { LobbyScreen } from './screens/LobbyScreen';
 import { QuestionScreen } from './screens/QuestionScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { MusicScreen } from './screens/MusicScreen';
+import { PromoScreen } from './screens/PromoScreen';
 import { Wifi, WifiOff } from 'lucide-react';
 import { getBotLink } from './config';
 
@@ -20,6 +21,26 @@ function getSessionCode(): string {
 function App() {
   const sessionCode = getSessionCode();
   const { state, results, isConnected, answerCount, playerCount, songData, playerNames } = useGameSocket(sessionCode);
+  
+  // Promo video state - show once when game starts (transition from lobby)
+  const [showPromo, setShowPromo] = useState(false);
+  const [promoCompleted, setPromoCompleted] = useState(false);
+  const prevStatusRef = useRef<string | null>(null);
+
+  // Detect when game starts (lobby → question_active) and trigger promo
+  useEffect(() => {
+    if (state && prevStatusRef.current === 'lobby' && state.status !== 'lobby' && !promoCompleted) {
+      setShowPromo(true);
+    }
+    if (state) {
+      prevStatusRef.current = state.status;
+    }
+  }, [state, promoCompleted]);
+
+  const handlePromoComplete = () => {
+    setShowPromo(false);
+    setPromoCompleted(true);
+  };
 
   // Auto-unlock audio on first click anywhere
   useEffect(() => {
@@ -137,6 +158,11 @@ function App() {
         return null;
     }
   };
+
+  // Show promo video when game starts
+  if (showPromo) {
+    return <PromoScreen onComplete={handlePromoComplete} />;
+  }
 
   return (
     <>
