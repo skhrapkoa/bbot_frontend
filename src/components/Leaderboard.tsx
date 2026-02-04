@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Player } from '../types';
 
@@ -25,6 +26,28 @@ function getAvatarGradient(name: string) {
 
 function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+// Компонент аватара с фото или fallback на инициалы
+function PlayerPhoto({ player, sizeClass }: { player: Player; sizeClass: string }) {
+  const [imgError, setImgError] = useState(false);
+  
+  if (player.photo_url && !imgError) {
+    return (
+      <img
+        src={player.photo_url}
+        alt={player.name}
+        className={`${sizeClass} rounded-full object-cover shadow-lg border-2 border-white/20`}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+  
+  return (
+    <div className={`${sizeClass} rounded-full bg-gradient-to-br ${getAvatarGradient(player.name)} flex items-center justify-center font-bold shadow-lg`}>
+      {getInitials(player.name)}
+    </div>
+  );
 }
 
 export function Leaderboard({ players, maxShow = 10, size = 'large' }: LeaderboardProps) {
@@ -69,16 +92,15 @@ export function Leaderboard({ players, maxShow = 10, size = 'large' }: Leaderboa
                 )}
               </div>
 
-              {/* Avatar */}
+              {/* Avatar/Photo */}
               <motion.div
                 whileHover={{ scale: 1.1, rotate: 5 }}
-                className={`
-                  ${isLarge ? 'w-14 h-14 text-xl' : 'w-10 h-10 text-sm'}
-                  rounded-full bg-gradient-to-br ${getAvatarGradient(player.name)}
-                  flex items-center justify-center font-bold shadow-lg
-                `}
+                className={isLarge ? 'text-xl' : 'text-sm'}
               >
-                {getInitials(player.name)}
+                <PlayerPhoto 
+                  player={player} 
+                  sizeClass={isLarge ? 'w-14 h-14' : 'w-10 h-10'} 
+                />
               </motion.div>
 
               {/* Name */}

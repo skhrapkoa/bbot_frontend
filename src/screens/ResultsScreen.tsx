@@ -5,6 +5,7 @@ import { Leaderboard } from '../components/Leaderboard';
 import { Confetti } from '../components/Confetti';
 import { Avatar } from '../components/Avatar';
 import { useAvatarVideo } from '../hooks/useAvatarVideo';
+import { useHedraTTS } from '../hooks/useHedraTTS';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { RoundResults, PlayerResult } from '../types';
 
@@ -114,10 +115,17 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     incorrect_players = []
   } = results;
   
-  // TTS: используем аватар если настроен, иначе EdgeTTS
+  // TTS: Hedra (голос Наташи) > Аватар > EdgeTTS fallback
+  const hedraTTS = useHedraTTS();
   const { speak: edgeSpeak } = useEdgeTTS({ voice: 'dmitry' });
   const avatar = useAvatarVideo({ fallbackToAudio: true });
-  const speak = AVATAR_ENABLED ? avatar.speak : edgeSpeak;
+  
+  // Приоритет: Hedra > Avatar > Edge
+  const speak = hedraTTS.isConfigured 
+    ? hedraTTS.speak 
+    : AVATAR_ENABLED 
+      ? avatar.speak 
+      : edgeSpeak;
   
   const spokenRef = useRef<number | null>(null);
   const [phase, setPhase] = useState<'answer' | 'correct' | 'incorrect' | 'done'>('answer');
@@ -130,31 +138,33 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     const runSequence = async () => {
       // Фаза 1: Озвучить правильный ответ
       setPhase('answer');
-      await speak(`Правильный ответ... ${correct_answer_text}!`);
+      await speak(`Правильный ответ: ${correct_answer_text}`);
       
       // Небольшая пауза
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 800));
       
-      // Фаза 2: Озвучить тех кто ответил правильно
-      if (correct_players.length > 0) {
-        setPhase('correct');
-        const names = correct_players.map(p => p.name).join(', ');
-        await speak(`Правильно ответили: ${names}`);
-        await new Promise(r => setTimeout(r, 800));
+      // Фаза 2: Показать лидерборд и озвучить лидера если он один
+      setPhase('correct');
+      
+      if (leaderboard.length > 0) {
+        const leader = leaderboard[0];
+        const secondPlace = leaderboard[1];
+        
+        // Если лидер единоличный (отрыв > 0 или второго нет)
+        if (!secondPlace || leader.score > secondPlace.score) {
+          await speak(`Лидирует ${leader.name}!`);
+          await new Promise(r => setTimeout(r, 500));
+        }
       }
       
-      // Фаза 3: Озвучить тех кто ошибся
-      if (incorrect_players.length > 0) {
-        setPhase('incorrect');
-        const names = incorrect_players.map(p => p.name).join(', ');
-        await speak(`Ошиблись: ${names}`);
-      }
+      // Фаза 3: Переходим к следующему
+      await speak(`Переходим к следующему вопросу.`);
       
       setPhase('done');
     };
     
     runSequence();
-  }, [results.round_id, correct_answer_text, correct_players, incorrect_players, speak]);
+  }, [results.round_id, correct_answer_text, leaderboard, speak]);
 
   return (
     <div className="min-h-screen p-8 overflow-auto">
