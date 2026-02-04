@@ -61,7 +61,7 @@ export function Leaderboard({ players, maxShow = 10, size = 'large' }: Leaderboa
         animate={{ opacity: 1, y: 0 }}
         className={`text-center mb-6 ${isLarge ? 'text-4xl' : 'text-2xl'} font-bold`}
       >
-        🏆 Leaderboard
+        🏆 Таблица лидеров
       </motion.h2>
 
       <div className="space-y-3">

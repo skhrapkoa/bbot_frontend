@@ -3,14 +3,21 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { OptionCard } from '../components/OptionCard';
 import { Leaderboard } from '../components/Leaderboard';
 import { Confetti } from '../components/Confetti';
-import { Avatar } from '../components/Avatar';
-import { useAvatarVideo } from '../hooks/useAvatarVideo';
 import { useHedraTTS } from '../hooks/useHedraTTS';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { RoundResults, PlayerResult } from '../types';
 
-// Проверяем включен ли аватар (D-ID или Replicate)
-const AVATAR_ENABLED = !!(import.meta.env.VITE_DID_API_KEY || import.meta.env.VITE_REPLICATE_API_KEY);
+// Музыка для результатов
+const RESULTS_MUSIC = [
+  '/audio/lobby/Sektor_Gaza_-_30_let_47992250.mp3',
+  '/audio/lobby/Аллегрова Ирина - День рождения.mp3',
+  '/audio/lobby/Игорь Николаев - Поздравляю.mp3',
+  '/audio/lobby/Ирина Аллегрова - С днем рождения.mp3',
+  '/audio/lobby/Чай вдвоем - День рождения.mp3',
+  '/audio/lobby/Юрий Шатунов - С Днём Рождения.mp3',
+  '/audio/lobby/igor-nikolaev-den-rozhdenija.mp3',
+  '/audio/lobby/Николай Басков - День Рождения.mp3',
+];
 
 interface ResultsScreenProps {
   results: RoundResults;
@@ -73,7 +80,6 @@ function PlayersList({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.8 }}
       className={`glass rounded-2xl p-4 bg-gradient-to-br ${bgClass} border ${borderClass}`}
     >
       <h4 className={`text-lg font-bold mb-3 flex items-center gap-2 ${textClass}`}>
@@ -85,7 +91,7 @@ function PlayersList({
             key={player.name + idx}
             initial={{ opacity: 0, scale: 0 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.9 + idx * 0.1 }}
+            transition={{ delay: 0.1 + idx * 0.05 }}
             className="flex flex-col items-center gap-1"
           >
             <PlayerAvatar 
@@ -115,114 +121,105 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     incorrect_players = []
   } = results;
   
-  // TTS: Hedra (голос Наташи) > Аватар > EdgeTTS fallback
+  // TTS: Hedra > EdgeTTS
   const hedraTTS = useHedraTTS();
   const { speak: edgeSpeak } = useEdgeTTS({ voice: 'dmitry' });
-  const avatar = useAvatarVideo({ fallbackToAudio: true });
-  
-  // Приоритет: Hedra > Avatar > Edge
-  const speak = hedraTTS.isConfigured 
-    ? hedraTTS.speak 
-    : AVATAR_ENABLED 
-      ? avatar.speak 
-      : edgeSpeak;
+  const speak = hedraTTS.isConfigured ? hedraTTS.speak : edgeSpeak;
   
   const spokenRef = useRef<number | null>(null);
-  const [phase, setPhase] = useState<'answer' | 'correct' | 'incorrect' | 'done'>('answer');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Фазы: 'stats' (распределение) -> 'leaderboard' (таблица лидеров)
+  const [phase, setPhase] = useState<'stats' | 'leaderboard'>('stats');
 
-  // Озвучка результатов поэтапно
+  // Запуск музыки
+  useEffect(() => {
+    const randomTrack = RESULTS_MUSIC[Math.floor(Math.random() * RESULTS_MUSIC.length)];
+    const audio = new Audio(randomTrack);
+    audio.volume = 0.3;
+    audio.loop = true;
+    audioRef.current = audio;
+    
+    audio.play().catch(err => console.log('Audio play error:', err));
+    
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
+  }, []);
+
+  // Озвучка результатов
   useEffect(() => {
     if (spokenRef.current === results.round_id) return;
     spokenRef.current = results.round_id;
     
     const runSequence = async () => {
-      // Фаза 1: Озвучить что время вышло и правильный ответ
-      setPhase('answer');
+      // Сразу говорим "Время вышло!" - без задержки
       await speak(`Время вышло! Правильный ответ: ${correct_answer_text}`);
       
-      // Небольшая пауза
-      await new Promise(r => setTimeout(r, 1000));
+      // Показываем статистику 5 секунд, затем переходим к таблице лидеров
+      await new Promise(r => setTimeout(r, 5000));
       
-      // Фаза 2: Показать лидерборд и озвучить лидера если он один
-      setPhase('correct');
+      setPhase('leaderboard');
       
+      // Озвучиваем лидера если он один
       if (leaderboard.length > 0) {
         const leader = leaderboard[0];
         const secondPlace = leaderboard[1];
         
-        // Если лидер единоличный (отрыв > 0 или второго нет)
         if (!secondPlace || leader.score > secondPlace.score) {
           await speak(`Сейчас лидирует ${leader.name}!`);
         }
       }
-      
-      // Не говорим "переходим к следующему" - ждём админа
-      setPhase('done');
     };
     
     runSequence();
   }, [results.round_id, correct_answer_text, leaderboard, speak]);
 
-  return (
-    <div className="min-h-screen p-8 overflow-auto">
-      {showConfetti && correct_players.length > 0 && <Confetti />}
+  // Этап 1: Распределение ответов (большой экран)
+  if (phase === 'stats') {
+    return (
+      <div className="min-h-screen p-8 flex flex-col">
+        {showConfetti && correct_players.length > 0 && <Confetti />}
 
-      {/* Avatar - показываем только если D-ID включен */}
-      {AVATAR_ENABLED && (
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="fixed bottom-8 left-8 z-50"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
         >
-          <Avatar
-            isPlaying={avatar.isPlaying}
-            isLoading={avatar.isLoading}
-            videoRef={avatar.setVideoElement}
-            size="medium"
-          />
+          <h1 className="text-6xl font-bold gradient-text mb-4">Результаты!</h1>
+          
+          {image_url && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex justify-center mb-4"
+            >
+              <img
+                src={image_url}
+                alt="Question"
+                className="max-h-[15vh] rounded-2xl shadow-lg object-contain"
+              />
+            </motion.div>
+          )}
+          
+          <p className="text-2xl text-white/70 max-w-3xl mx-auto">{question_text}</p>
         </motion.div>
-      )}
 
-      {/* Header with optional image */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-6"
-      >
-        <h1 className="text-5xl font-bold gradient-text mb-4">Результаты!</h1>
-        
-        {/* Question image if available */}
-        {image_url && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex justify-center mb-4"
-          >
-            <img
-              src={image_url}
-              alt="Question"
-              className="max-h-[20vh] rounded-2xl shadow-lg object-contain"
-            />
-          </motion.div>
-        )}
-        
-        <p className="text-xl text-white/70 max-w-2xl mx-auto">{question_text}</p>
-      </motion.div>
-
-      <div className="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto">
-        {/* Left column: Options + Players */}
-        <div className="flex-1 space-y-6">
-          {/* Options with results */}
-          <div>
+        {/* Распределение ответов - на весь экран */}
+        <div className="flex-1 flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full">
+          {/* Левая колонка: варианты */}
+          <div className="flex-1">
             <motion.h3
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-2xl font-bold mb-4 flex items-center gap-2"
+              className="text-3xl font-bold mb-6 flex items-center gap-2"
             >
               <span className="text-green-500">✓</span> Распределение ответов
             </motion.h3>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {options.map((option, index) => (
                 <OptionCard
                   key={index}
@@ -238,70 +235,72 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
             </div>
           </div>
 
-          {/* Correct players */}
-          <AnimatePresence>
-            {(phase === 'correct' || phase === 'incorrect' || phase === 'done') && (
-              <PlayersList
-                players={correct_players}
-                title="Правильно ответили"
-                icon="✅"
-                color="green"
-              />
-            )}
-          </AnimatePresence>
+          {/* Правая колонка: игроки и статистика */}
+          <div className="lg:w-[400px] space-y-6">
+            {/* Правильно ответили */}
+            <PlayersList
+              players={correct_players}
+              title="Правильно ответили"
+              icon="✅"
+              color="green"
+            />
 
-          {/* Incorrect players */}
-          <AnimatePresence>
-            {(phase === 'incorrect' || phase === 'done') && (
-              <PlayersList
-                players={incorrect_players}
-                title="Ошиблись"
-                icon="❌"
-                color="red"
-              />
-            )}
-          </AnimatePresence>
+            {/* Ошиблись */}
+            <PlayersList
+              players={incorrect_players}
+              title="Ошиблись"
+              icon="❌"
+              color="red"
+            />
 
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="glass rounded-2xl p-6"
-          >
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-3xl font-bold text-pink-500">{total_answers}</div>
-                <div className="text-sm text-white/50">Всего ответов</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-green-500">
-                  {option_stats[String(correct_option)] || 0}
+            {/* Stats */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="glass rounded-2xl p-6"
+            >
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-4xl font-bold text-pink-500">{total_answers}</div>
+                  <div className="text-sm text-white/50">Всего ответов</div>
                 </div>
-                <div className="text-sm text-white/50">Правильных</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-amber-500">
-                  {total_answers > 0 
-                    ? Math.round(((option_stats[String(correct_option)] || 0) / total_answers) * 100)
-                    : 0}%
+                <div>
+                  <div className="text-4xl font-bold text-green-500">
+                    {option_stats[String(correct_option)] || 0}
+                  </div>
+                  <div className="text-sm text-white/50">Правильных</div>
                 </div>
-                <div className="text-sm text-white/50">Точность</div>
+                <div>
+                  <div className="text-4xl font-bold text-amber-500">
+                    {total_answers > 0 
+                      ? Math.round(((option_stats[String(correct_option)] || 0) / total_answers) * 100)
+                      : 0}%
+                  </div>
+                  <div className="text-sm text-white/50">Точность</div>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
-
-        {/* Leaderboard */}
-        <motion.div
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
-          className="lg:w-96"
-        >
-          <Leaderboard players={leaderboard} size="compact" />
-        </motion.div>
       </div>
+    );
+  }
+
+  // Этап 2: Таблица лидеров (на весь экран)
+  return (
+    <div className="min-h-screen p-8 flex flex-col items-center justify-center">
+      {showConfetti && correct_players.length > 0 && <Confetti />}
+      
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-3xl"
+        >
+          <Leaderboard players={leaderboard} size="large" />
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
