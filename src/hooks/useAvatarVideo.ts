@@ -166,9 +166,10 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
     throw new Error('Replicate timeout');
   }, []);
 
-  // ========== Backend Provider (бесплатный, всё на сервере) ==========
+  // ========== Backend Provider (async с polling) ==========
   const generateViaBackend = useCallback(async (text: string, signal: AbortSignal): Promise<string> => {
-    const response = await fetch(`${API_URL}/api/avatar-video/`, {
+    // Шаг 1: Запускаем генерацию
+    const startResponse = await fetch(`${API_URL}/api/avatar-video/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -178,9 +179,47 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
       signal,
     });
     
-    if (!response.ok) throw new Error('Backend avatar generation failed');
-    const { video_url } = await response.json();
-    return video_url;
+    if (!startResponse.ok) {
+      const err = await startResponse.json().catch(() => ({}));
+      throw new Error(err.error || 'Backend avatar generation failed');
+    }
+    
+    const startData = await startResponse.json();
+    
+    // Если уже есть готовое видео (из кеша)
+    if (startData.video_url) {
+      return startData.video_url;
+    }
+    
+    const taskId = startData.task_id;
+    if (!taskId) throw new Error('No task ID returned');
+    
+    // Шаг 2: Polling статуса
+    for (let i = 0; i < 180; i++) { // 6 минут максимум
+      if (signal.aborted) throw new Error('Aborted');
+      
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const statusResponse = await fetch(`${API_URL}/api/avatar-video/${taskId}/status/`, {
+        signal,
+      });
+      
+      if (!statusResponse.ok) continue;
+      
+      const statusData = await statusResponse.json();
+      
+      if (statusData.status === 'completed' && statusData.video_url) {
+        return statusData.video_url;
+      }
+      
+      if (statusData.status === 'failed') {
+        throw new Error(statusData.error || 'Generation failed');
+      }
+      
+      // pending или processing - продолжаем polling
+    }
+    
+    throw new Error('Timeout waiting for video');
   }, []);
 
   // ========== Main generate function ==========
