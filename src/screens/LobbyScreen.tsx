@@ -55,8 +55,8 @@ export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
       >
-        {/* Glass card */}
-        <div className="backdrop-blur-xl bg-white/10 rounded-[2rem] p-8 md:p-12 shadow-2xl border border-white/20">
+        {/* Glass card - bigger and brighter */}
+        <div className="backdrop-blur-2xl bg-black/60 rounded-[2rem] p-10 md:p-14 shadow-2xl border border-white/30">
           
           {/* Title */}
           <motion.h1
@@ -96,7 +96,7 @@ export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.7 }}
-            className="text-lg md:text-xl text-center text-white/90 font-medium mb-6"
+            className="text-xl md:text-2xl text-center text-white font-bold mb-6"
           >
             📱 Сканируй и введи своё имя!
           </motion.p>
@@ -118,15 +118,15 @@ export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
             transition={{ delay: 1 }}
             className="text-center"
           >
-            <p className="text-white/60 text-sm mb-3">🔍 Найди себя в списке:</p>
-            <div className="flex flex-wrap justify-center gap-2 max-w-md">
+            <p className="text-white text-base font-semibold mb-4">🔍 Найди себя в списке:</p>
+            <div className="flex flex-wrap justify-center gap-2 max-w-lg">
               {EXPECTED_GUESTS.map((name, i) => (
                 <motion.span
                   key={name}
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 1.1 + i * 0.05 }}
-                  className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80 border border-white/20"
+                  className="px-3 py-1.5 bg-pink-500/30 rounded-full text-sm text-white font-medium border border-pink-400/40"
                 >
                   {name}
                 </motion.span>
