@@ -229,6 +229,13 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
               📱 Сканируй и введи имя!
             </p>
             
+            {/* Текстовая ссылка для тех кто не может сканировать */}
+            <p className="text-lg text-white/70 text-center mt-2 select-all cursor-pointer"
+               style={{ textShadow: '0 2px 10px rgba(0,0,0,0.7)' }}
+               onClick={() => navigator.clipboard.writeText(botLink)}>
+              или открой: <span className="text-pink-400 underline">{botLink.replace('https://', '')}</span>
+            </p>
+            
             <motion.div
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
