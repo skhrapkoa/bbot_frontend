@@ -18,8 +18,8 @@ interface QuestionScreenProps {
   playerCount: number;
 }
 
-// Проверяем включен ли D-ID аватар
-const AVATAR_ENABLED = !!import.meta.env.VITE_DID_API_KEY;
+// Проверяем включен ли аватар (D-ID или Replicate)
+const AVATAR_ENABLED = !!(import.meta.env.VITE_DID_API_KEY || import.meta.env.VITE_REPLICATE_API_KEY);
 
 export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';

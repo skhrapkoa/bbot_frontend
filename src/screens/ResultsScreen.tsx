@@ -8,8 +8,8 @@ import { useAvatarVideo } from '../hooks/useAvatarVideo';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { RoundResults, PlayerResult } from '../types';
 
-// Проверяем включен ли D-ID аватар
-const AVATAR_ENABLED = !!import.meta.env.VITE_DID_API_KEY;
+// Проверяем включен ли аватар (D-ID или Replicate)
+const AVATAR_ENABLED = !!(import.meta.env.VITE_DID_API_KEY || import.meta.env.VITE_REPLICATE_API_KEY);
 
 interface ResultsScreenProps {
   results: RoundResults;
@@ -159,6 +159,22 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
   return (
     <div className="min-h-screen p-8 overflow-auto">
       {showConfetti && correct_players.length > 0 && <Confetti />}
+
+      {/* Avatar - показываем только если D-ID включен */}
+      {AVATAR_ENABLED && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="fixed bottom-8 left-8 z-50"
+        >
+          <Avatar
+            isPlaying={avatar.isPlaying}
+            isLoading={avatar.isLoading}
+            videoRef={avatar.setVideoElement}
+            size="medium"
+          />
+        </motion.div>
+      )}
 
       {/* Header with optional image */}
       <motion.div

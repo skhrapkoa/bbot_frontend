@@ -1,11 +1,19 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 
+// Поддержка D-ID (платный) или Replicate/SadTalker (бесплатный)
 const D_ID_API_KEY = import.meta.env.VITE_DID_API_KEY;
+const REPLICATE_API_KEY = import.meta.env.VITE_REPLICATE_API_KEY;
 const AVATAR_IMAGE_URL = import.meta.env.VITE_AVATAR_IMAGE_URL;
 const ELEVENLABS_VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID;
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+// Какой провайдер использовать
+const PROVIDER: 'did' | 'replicate' | 'backend' | null = 
+  D_ID_API_KEY ? 'did' : 
+  REPLICATE_API_KEY ? 'replicate' : 
+  API_URL ? 'backend' : null;
 
 // Стандартные фразы с прекэшированными видео
-// Ключ = текст (нормализованный), значение = URL видео
 const CACHED_VIDEOS: Record<string, string> = {
   'время пошло! у вас 20 секунд.': '/avatar-cache/time-started.mp4',
   'правильный ответ...': '/avatar-cache/correct-answer.mp4',
@@ -16,12 +24,10 @@ const CACHED_VIDEOS: Record<string, string> = {
   'игра окончена!': '/avatar-cache/game-over.mp4',
 };
 
-// Нормализация текста для поиска в кэше
 function normalizeText(text: string): string {
   return text.toLowerCase().trim();
 }
 
-// Проверяем, начинается ли текст с кэшированной фразы
 function findCachedPrefix(text: string): { cachedUrl: string; remainder: string } | null {
   const normalized = normalizeText(text);
   
@@ -43,7 +49,7 @@ interface AvatarState {
 
 interface UseAvatarVideoOptions {
   onVideoEnd?: () => void;
-  fallbackToAudio?: boolean; // Если D-ID недоступен, использовать только ElevenLabs
+  fallbackToAudio?: boolean;
 }
 
 export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
@@ -59,16 +65,8 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Генерация видео через D-ID API
-  const generateVideo = useCallback(async (text: string): Promise<string> => {
-    if (!D_ID_API_KEY || !AVATAR_IMAGE_URL) {
-      throw new Error('D-ID not configured');
-    }
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    // 1. Создаём talk
+  // ========== D-ID Provider ==========
+  const generateViaDID = useCallback(async (text: string, signal: AbortSignal): Promise<string> => {
     const createResponse = await fetch('https://api.d-id.com/talks', {
       method: 'POST',
       headers: {
@@ -88,60 +86,122 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
             voice_id: 'ru-RU-DmitryNeural',
           },
         },
-        config: {
-          fluent: true,
-          pad_audio: 0.5,
-        },
+        config: { fluent: true, pad_audio: 0.5 },
       }),
-      signal: controller.signal,
+      signal,
     });
 
     if (!createResponse.ok) {
-      const error = await createResponse.text();
-      throw new Error(`D-ID create error: ${createResponse.status} - ${error}`);
+      throw new Error(`D-ID error: ${createResponse.status}`);
     }
 
     const { id: talkId } = await createResponse.json();
 
-    // 2. Поллинг до готовности
-    let attempts = 0;
-    const maxAttempts = 60; // 60 секунд максимум
-    
-    while (attempts < maxAttempts) {
-      if (controller.signal.aborted) {
-        throw new Error('Aborted');
-      }
-
+    // Polling
+    for (let i = 0; i < 60; i++) {
+      if (signal.aborted) throw new Error('Aborted');
       await new Promise(r => setTimeout(r, 1000));
       
       const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
-        headers: {
-          'Authorization': `Basic ${D_ID_API_KEY}`,
-        },
-        signal: controller.signal,
+        headers: { 'Authorization': `Basic ${D_ID_API_KEY}` },
+        signal,
       });
 
-      if (!statusResponse.ok) {
-        throw new Error(`D-ID status error: ${statusResponse.status}`);
-      }
-
       const status = await statusResponse.json();
-      
-      if (status.status === 'done' && status.result_url) {
-        return status.result_url;
-      }
-      
-      if (status.status === 'error') {
-        throw new Error(`D-ID generation failed: ${status.error?.message || 'Unknown error'}`);
-      }
-
-      attempts++;
+      if (status.status === 'done' && status.result_url) return status.result_url;
+      if (status.status === 'error') throw new Error('D-ID generation failed');
     }
-
     throw new Error('D-ID timeout');
   }, []);
 
-  // Проиграть видео (с кэшем или генерацией)
+  // ========== Replicate/SadTalker Provider ==========
+  const generateViaReplicate = useCallback(async (text: string, signal: AbortSignal): Promise<string> => {
+    // Шаг 1: Генерируем аудио через бэкенд
+    const audioResponse = await fetch(`${API_URL}/api/tts/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang: 'ru' }),
+      signal,
+    });
+    
+    if (!audioResponse.ok) throw new Error('TTS generation failed');
+    const { audio_url } = await audioResponse.json();
+
+    // Шаг 2: Отправляем в SadTalker через Replicate
+    const createResponse = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${REPLICATE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        version: 'cjwbw/sadtalker:a519cc0cfebaaeade068b23899165a11ec76aaa1a2ca5c6dc62c60c7de34e768',
+        input: {
+          source_image: AVATAR_IMAGE_URL,
+          driven_audio: audio_url,
+          enhancer: 'gfpgan',
+        },
+      }),
+      signal,
+    });
+
+    if (!createResponse.ok) throw new Error('Replicate error');
+    const prediction = await createResponse.json();
+
+    // Polling
+    for (let i = 0; i < 120; i++) {
+      if (signal.aborted) throw new Error('Aborted');
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const statusResponse = await fetch(prediction.urls.get, {
+        headers: { 'Authorization': `Token ${REPLICATE_API_KEY}` },
+        signal,
+      });
+      
+      const status = await statusResponse.json();
+      if (status.status === 'succeeded' && status.output) return status.output;
+      if (status.status === 'failed') throw new Error('SadTalker failed');
+    }
+    throw new Error('Replicate timeout');
+  }, []);
+
+  // ========== Backend Provider (бесплатный, всё на сервере) ==========
+  const generateViaBackend = useCallback(async (text: string, signal: AbortSignal): Promise<string> => {
+    const response = await fetch(`${API_URL}/api/avatar-video/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        text, 
+        image_url: AVATAR_IMAGE_URL,
+      }),
+      signal,
+    });
+    
+    if (!response.ok) throw new Error('Backend avatar generation failed');
+    const { video_url } = await response.json();
+    return video_url;
+  }, []);
+
+  // ========== Main generate function ==========
+  const generateVideo = useCallback(async (text: string): Promise<string> => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    if (!AVATAR_IMAGE_URL) throw new Error('Avatar image not configured');
+
+    switch (PROVIDER) {
+      case 'did':
+        return generateViaDID(text, controller.signal);
+      case 'replicate':
+        return generateViaReplicate(text, controller.signal);
+      case 'backend':
+        return generateViaBackend(text, controller.signal);
+      default:
+        throw new Error('No avatar provider configured');
+    }
+  }, [generateViaDID, generateViaReplicate, generateViaBackend]);
+
+  // ========== Speak function ==========
   const speak = useCallback(async (text: string): Promise<void> => {
     return new Promise(async (resolve, reject) => {
       setState(s => ({ ...s, isLoading: true, error: null }));
@@ -153,24 +213,20 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
         let remainingText: string | null = null;
 
         if (cached) {
-          // Используем кэшированное видео для начала фразы
           videoUrl = cached.cachedUrl;
           remainingText = cached.remainder || null;
         } else {
-          // Генерируем через D-ID
           videoUrl = await generateVideo(text);
         }
 
         setState(s => ({ ...s, isLoading: false, isPlaying: true, videoUrl }));
 
-        // Ждём окончания видео
         if (videoRef.current) {
           videoRef.current.src = videoUrl;
           
           const handleEnded = async () => {
             videoRef.current?.removeEventListener('ended', handleEnded);
             
-            // Если есть остаток текста, генерируем и играем его
             if (remainingText) {
               try {
                 const nextUrl = await generateVideo(remainingText);
@@ -182,8 +238,7 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
                   onVideoEnd?.();
                   resolve();
                 }, { once: true });
-              } catch (e) {
-                // Fallback: просто заканчиваем
+              } catch {
                 setState(s => ({ ...s, isPlaying: false }));
                 onVideoEnd?.();
                 resolve();
@@ -205,8 +260,7 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
         setState(s => ({ ...s, isLoading: false, error: errorMessage }));
         
         if (fallbackToAudio && errorMessage !== 'Aborted') {
-          // Fallback к Web Speech
-          console.warn('D-ID failed, falling back to speech:', errorMessage);
+          console.warn('Avatar generation failed, falling back to speech:', errorMessage);
           fallbackSpeak(text);
         }
         
@@ -224,7 +278,6 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
     setState(s => ({ ...s, isPlaying: false, isLoading: false }));
   }, []);
 
-  // Установка ref видео элемента
   const setVideoElement = useCallback((el: HTMLVideoElement | null) => {
     videoRef.current = el;
   }, []);
@@ -237,14 +290,13 @@ export function useAvatarVideo(options: UseAvatarVideoOptions = {}) {
     speak,
     stop,
     setVideoElement,
+    provider: PROVIDER,
     ...state,
   };
 }
 
-// Fallback на Web Speech
 function fallbackSpeak(text: string) {
   if (!window.speechSynthesis) return;
-  
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ru-RU';
@@ -252,5 +304,5 @@ function fallbackSpeak(text: string) {
   window.speechSynthesis.speak(utterance);
 }
 
-// Список стандартных фраз для прегенерации
 export const STANDARD_PHRASES = Object.keys(CACHED_VIDEOS);
+export { PROVIDER as AVATAR_PROVIDER };
