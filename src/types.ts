@@ -48,7 +48,7 @@ export interface RoundResults {
   options: string[];
   correct_option: number;
   correct_answer_text: string;
-  option_stats: Record<number, number>;
+  option_stats: Record<string, number>;
   total_answers: number;
   correct_count: number;
   image_url?: string;

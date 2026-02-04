@@ -231,7 +231,7 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
                   total={options.length}
                   isCorrect={index === correct_option}
                   isRevealed
-                  votes={option_stats[index] || 0}
+                  votes={option_stats[String(index)] || 0}
                   totalVotes={total_answers}
                 />
               ))}
@@ -276,14 +276,14 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
               </div>
               <div>
                 <div className="text-3xl font-bold text-green-500">
-                  {option_stats[correct_option] || 0}
+                  {option_stats[String(correct_option)] || 0}
                 </div>
                 <div className="text-sm text-white/50">Правильных</div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-amber-500">
                   {total_answers > 0 
-                    ? Math.round(((option_stats[correct_option] || 0) / total_answers) * 100)
+                    ? Math.round(((option_stats[String(correct_option)] || 0) / total_answers) * 100)
                     : 0}%
                 </div>
                 <div className="text-sm text-white/50">Точность</div>
