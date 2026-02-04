@@ -32,14 +32,14 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
   
-  // Формируем полный текст для озвучки
+  // Формируем полный текст для озвучки (без "Вариант" для скорости)
   const fullSpeechText = useMemo(() => {
-    const letterNames = ['Вариант А', 'Вариант Бэ', 'Вариант Вэ', 'Вариант Гэ'];
+    const letters = ['А', 'Б', 'В', 'Г'];
     const optionsText = round.options
-      .map((opt, i) => `${letterNames[i] || `Вариант ${i + 1}`}, ${opt}`)
+      .map((opt, i) => `${letters[i] || i + 1}. ${opt}`)
       .join('. ');
     
-    return `${round.question_text}... ${optionsText}... Время пошло! У вас 20 секунд.`;
+    return `${round.question_text}... ${optionsText}... Время пошло!`;
   }, [round.question_text, round.options]);
   
   // Сброс при смене раунда
