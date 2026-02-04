@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
-import { useHedraTTS } from '../hooks/useHedraTTS';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
 
@@ -20,9 +19,8 @@ interface QuestionScreenProps {
 export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
   
-  // Hedra TTS (приоритет) и EdgeTTS как fallback
-  const hedra = useHedraTTS();
-  const { speak: edgeSpeak } = useEdgeTTS({ voice: 'dmitry' });
+  // EdgeTTS для озвучки вопросов
+  const { speak } = useEdgeTTS({ voice: 'dmitry' });
   
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
@@ -61,19 +59,9 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
       // Озвучить вопрос, затем запустить музыку и таймер
       const timer = setTimeout(async () => {
         try {
-          // Пробуем Hedra TTS (если настроен)
-          if (hedra.isConfigured) {
-            console.log('Using Hedra TTS...');
-            await hedra.speak(fullSpeechText);
-          } else {
-            // Fallback на EdgeTTS
-            console.log('Hedra not configured, using EdgeTTS');
-            await edgeSpeak(fullSpeechText);
-          }
+          await speak(fullSpeechText);
         } catch (e) {
-          // Если Hedra не сработал - fallback на EdgeTTS
-          console.warn('Hedra TTS failed, using EdgeTTS fallback:', e);
-          await edgeSpeak(fullSpeechText);
+          console.warn('TTS failed:', e);
         }
         
         // Устанавливаем дедлайн на 20 секунд от сейчас
@@ -91,7 +79,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
       
       return () => clearTimeout(timer);
     }
-  }, [round.id, fullSpeechText, hedra, edgeSpeak]);
+  }, [round.id, fullSpeechText, speak]);
   
   // Остановить музыку при уходе со страницы
   useEffect(() => {

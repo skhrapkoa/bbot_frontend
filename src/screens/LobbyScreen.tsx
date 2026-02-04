@@ -33,8 +33,7 @@ const photoModules = import.meta.glob('/public/photos/*.{jpg,jpeg,png,webp}', { 
 
 export function LobbyScreen({ title, playerCount, botLink, registeredNames = [], removedGuests = [] }: LobbyScreenProps) {
   const [photos, setPhotos] = useState<string[]>([]);
-  const [musicPlaying, setMusicPlaying] = useState(false);
-  const [showMusicButton, setShowMusicButton] = useState(true);
+  const [musicStarted, setMusicStarted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const skipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shuffledRef = useRef<string[]>([]);
@@ -50,21 +49,7 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
     }
   }, []);
 
-  // Initialize audio
-  useEffect(() => {
-    shuffledRef.current = [...LOBBY_MUSIC].sort(() => Math.random() - 0.5);
-    const audio = new Audio();
-    audio.volume = 0.4;
-    audioRef.current = audio;
-
-    return () => {
-      if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
-      audio.pause();
-      audio.src = '';
-    };
-  }, []);
-
-  // Function to play next track
+  // Function to play next track with fade
   const playNext = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -78,31 +63,95 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
     }
     
     audio.src = shuffledRef.current[currentIndexRef.current];
-    audio.volume = 0.4;
+    audio.volume = 0;
     audio.play().then(() => {
-      setMusicPlaying(true);
-      setShowMusicButton(false);
-    }).catch(console.error);
+      setMusicStarted(true);
+      // Fade in
+      const fadeIn = setInterval(() => {
+        if (audio.volume < 0.38) {
+          audio.volume = Math.min(0.4, audio.volume + 0.02);
+        } else {
+          clearInterval(fadeIn);
+          audio.volume = 0.4;
+        }
+      }, 50);
+    }).catch(() => {});
     
-    // Skip to next track after 90 seconds
+    // Skip to next track after ~90 seconds with fade out
     skipTimerRef.current = setTimeout(() => {
-      playNext();
-    }, 90000);
+      // Fade out
+      const fadeOut = setInterval(() => {
+        if (audio.volume > 0.02) {
+          audio.volume = Math.max(0, audio.volume - 0.02);
+        } else {
+          clearInterval(fadeOut);
+          playNext();
+        }
+      }, 50);
+    }, 88000);
   };
 
-  // Start music on user click
-  const startMusic = () => {
-    playNext();
-  };
-
-  // Handle track end
+  // Initialize audio and try autoplay
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    
+    shuffledRef.current = [...LOBBY_MUSIC].sort(() => Math.random() - 0.5);
+    const audio = new Audio();
+    audioRef.current = audio;
+
+    // Handle track end
     const handleEnded = () => playNext();
     audio.addEventListener('ended', handleEnded);
-    return () => audio.removeEventListener('ended', handleEnded);
+
+    // Try autoplay immediately
+    currentIndexRef.current = 0;
+    audio.src = shuffledRef.current[0];
+    audio.volume = 0;
+    
+    audio.play().then(() => {
+      setMusicStarted(true);
+      // Fade in
+      let vol = 0;
+      const fadeIn = setInterval(() => {
+        vol += 0.02;
+        if (vol < 0.4) {
+          audio.volume = vol;
+        } else {
+          clearInterval(fadeIn);
+          audio.volume = 0.4;
+        }
+      }, 50);
+      
+      // Set timer for next track
+      skipTimerRef.current = setTimeout(() => {
+        const fadeOut = setInterval(() => {
+          if (audio.volume > 0.02) {
+            audio.volume = Math.max(0, audio.volume - 0.02);
+          } else {
+            clearInterval(fadeOut);
+            playNext();
+          }
+        }, 50);
+      }, 88000);
+    }).catch(() => {
+      // Autoplay blocked - start on any interaction
+      const startOnInteraction = () => {
+        if (!musicStarted) {
+          playNext();
+        }
+        document.removeEventListener('click', startOnInteraction);
+        document.removeEventListener('touchstart', startOnInteraction);
+        document.removeEventListener('keydown', startOnInteraction);
+      };
+      document.addEventListener('click', startOnInteraction);
+      document.addEventListener('touchstart', startOnInteraction);
+      document.addEventListener('keydown', startOnInteraction);
+    });
+
+    return () => {
+      if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
+      audio.removeEventListener('ended', handleEnded);
+      audio.pause();
+      audio.src = '';
+    };
   }, []);
 
   const remainingGuests = useMemo(() => {
