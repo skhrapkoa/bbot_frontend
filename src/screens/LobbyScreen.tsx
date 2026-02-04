@@ -19,16 +19,16 @@ const EXPECTED_GUESTS = [
 
 export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Photo collage background */}
       <PhotoCollage />
 
       {/* Floating confetti */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-10">
-        {[...Array(20)].map((_, i) => (
+        {[...Array(15)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute text-2xl md:text-4xl"
+            className="absolute text-4xl md:text-6xl"
             style={{ left: `${Math.random() * 100}%` }}
             initial={{ y: -50, opacity: 0 }}
             animate={{ 
@@ -37,9 +37,9 @@ export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
               rotate: [0, 360],
             }}
             transition={{ 
-              duration: 8 + Math.random() * 6,
+              duration: 10 + Math.random() * 8,
               repeat: Infinity,
-              delay: Math.random() * 10,
+              delay: Math.random() * 12,
               ease: 'linear',
             }}
           >
@@ -48,109 +48,114 @@ export function LobbyScreen({ title, playerCount, botLink }: LobbyScreenProps) {
         ))}
       </div>
 
-      {/* Main content card */}
+      {/* Main content - TV optimized layout */}
       <motion.div 
-        className="relative z-20 flex flex-col items-center"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
+        className="relative z-20 w-full max-w-7xl flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        {/* Glass card - bigger and brighter */}
-        <div className="backdrop-blur-2xl bg-black/60 rounded-[2rem] p-10 md:p-14 shadow-2xl border border-white/30">
-          
+        {/* Left side - Title & QR */}
+        <div className="flex flex-col items-center">
           {/* Title */}
           <motion.h1
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-black text-center mb-2 text-white drop-shadow-lg"
-            style={{ textShadow: '0 0 40px rgba(255,107,157,0.5)' }}
+            initial={{ opacity: 0, y: -30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-5xl md:text-7xl lg:text-8xl font-black text-center text-white mb-4"
+            style={{ 
+              textShadow: '0 0 60px rgba(255,107,157,0.8), 0 4px 20px rgba(0,0,0,0.8)',
+              WebkitTextStroke: '2px rgba(255,255,255,0.3)'
+            }}
           >
             {title}
           </motion.h1>
 
           {/* Subtitle */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-xl md:text-2xl text-center text-pink-300 font-semibold mb-8"
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-3xl md:text-4xl text-center font-bold mb-8 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 rounded-full shadow-xl"
           >
             🎂 Юбилей 30 лет! 🎂
-          </motion.p>
+          </motion.div>
 
           {/* QR Code */}
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5, type: 'spring' }}
-            className="flex justify-center mb-6"
+            transition={{ delay: 0.4, type: 'spring' }}
+            className="bg-white rounded-3xl p-5 shadow-2xl mb-6"
           >
-            <div className="bg-white rounded-2xl p-3 shadow-xl">
-              <QRCode value={botLink} size={220} />
-            </div>
+            <QRCode value={botLink} size={280} />
           </motion.div>
 
-          {/* Simple instruction */}
+          {/* Instruction */}
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="text-xl md:text-2xl text-center text-white font-bold mb-6"
+            transition={{ delay: 0.5 }}
+            className="text-2xl md:text-3xl text-center text-white font-bold mb-4"
+            style={{ textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}
           >
-            📱 Сканируй и введи своё имя!
+            📱 Сканируй QR и введи имя!
           </motion.p>
 
           {/* Player counter */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            className="flex justify-center mb-6"
+            transition={{ delay: 0.6 }}
           >
             <PlayerCounter count={playerCount} />
           </motion.div>
-
-          {/* Expected guests */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 }}
-            className="text-center"
-          >
-            <p className="text-white text-base font-semibold mb-4">🔍 Найди себя в списке:</p>
-            <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-              {EXPECTED_GUESTS.map((name, i) => (
-                <motion.span
-                  key={name}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 1.1 + i * 0.05 }}
-                  className="px-3 py-1.5 bg-pink-500/30 rounded-full text-sm text-white font-medium border border-pink-400/40"
-                >
-                  {name}
-                </motion.span>
-              ))}
-            </div>
-          </motion.div>
         </div>
 
-        {/* Waiting indicator */}
+        {/* Right side - Guest list */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2 }}
-          className="mt-6 flex items-center gap-3 text-white/70"
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.7 }}
+          className="backdrop-blur-xl bg-black/70 rounded-3xl p-8 shadow-2xl border-2 border-pink-500/50"
         >
-          <motion.span
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-2xl"
-          >
-            ⏳
-          </motion.span>
-          <span className="text-lg">Ожидаем гостей...</span>
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-6"
+              style={{ textShadow: '0 0 20px rgba(255,107,157,0.5)' }}>
+            🔍 Найди себя:
+          </h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-xl">
+            {EXPECTED_GUESTS.map((name, i) => (
+              <motion.div
+                key={name}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.8 + i * 0.05 }}
+                whileHover={{ scale: 1.1 }}
+                className="px-4 py-3 bg-gradient-to-r from-pink-500/40 to-rose-500/40 rounded-xl text-center text-lg md:text-xl text-white font-bold border-2 border-white/30 shadow-lg"
+                style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
+              >
+                {name}
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
+      </motion.div>
+
+      {/* Waiting indicator - bottom */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5 }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 bg-black/50 px-8 py-4 rounded-full backdrop-blur-md"
+      >
+        <motion.span
+          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-4xl"
+        >
+          ⏳
+        </motion.span>
+        <span className="text-2xl text-white font-semibold">Ожидаем гостей...</span>
       </motion.div>
     </div>
   );
