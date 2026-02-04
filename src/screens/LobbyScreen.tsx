@@ -2,8 +2,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QRCode } from '../components/QRCode';
 import { useMemo, useEffect, useState, useRef } from 'react';
 
-// Import all lobby music files
-const musicModules = import.meta.glob('/public/audio/lobby/*.mp3', { eager: true, query: '?url', import: 'default' });
+// Lobby music playlist (files in /public/audio/lobby/)
+const LOBBY_MUSIC = [
+  '/audio/lobby/Sektor_Gaza_-_30_let_47992250.mp3',
+  '/audio/lobby/Аллегрова Ирина - День рождения.mp3',
+  '/audio/lobby/Игорь Николаев - Поздравляю.mp3',
+  '/audio/lobby/Ирина Аллегрова - С днем рождения.mp3',
+  '/audio/lobby/Чай вдвоем - День рождения.mp3',
+  '/audio/lobby/Юрий Шатунов - С Днём Рождения.mp3',
+];
 
 interface LobbyScreenProps {
   title: string;
@@ -40,7 +47,7 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
 
   // Play lobby music - random shuffle playlist, switch before chorus (~40s)
   useEffect(() => {
-    const musicUrls = Object.values(musicModules) as string[];
+    const musicUrls = LOBBY_MUSIC;
     if (musicUrls.length === 0) return;
 
     let currentIndex = -1;
