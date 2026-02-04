@@ -301,18 +301,16 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [],
         </div>
       )}
 
-      {/* Music button */}
-      {showMusicButton && (
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={startMusic}
-          className="fixed bottom-8 right-8 z-50 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-2xl font-bold px-6 py-4 rounded-full shadow-2xl flex items-center gap-3"
+      {/* Hint to tap if music not playing */}
+      {!musicStarted && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-black/70 text-white text-xl font-bold px-6 py-3 rounded-full"
         >
-          🎵 Включить музыку
-        </motion.button>
+          👆 Тапни куда угодно для музыки
+        </motion.div>
       )}
     </div>
   );
