@@ -2,89 +2,71 @@ import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
 // Import all photos from the photos folder
-const photoModules = import.meta.glob('/public/photos/*.{jpg,jpeg,png,webp}', { eager: true, as: 'url' });
+const photoModules = import.meta.glob('/public/photos/*.{jpg,jpeg,png,webp}', { eager: true, query: '?url', import: 'default' });
 
 export function PhotoCollage() {
   const [photos, setPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     // Get all photo URLs from the glob import
-    const photoUrls = Object.values(photoModules).map(url => 
-      // Convert /public/photos/... to /photos/...
-      url.replace('/public', '')
-    );
+    const photoUrls = Object.values(photoModules) as string[];
     
-    // If no photos found, use placeholder pattern
     if (photoUrls.length === 0) {
-      // Generate placeholder grid
       setPhotos([]);
       return;
     }
     
     // Duplicate photos to fill the grid
     const duplicated = [...photoUrls];
-    while (duplicated.length < 30) {
+    while (duplicated.length < 40) {
       duplicated.push(...photoUrls);
     }
-    setPhotos(duplicated.slice(0, 30));
+    // Shuffle for variety
+    const shuffled = duplicated.sort(() => Math.random() - 0.5);
+    setPhotos(shuffled.slice(0, 40));
   }, []);
 
   if (photos.length === 0) {
-    // Fallback: animated gradient squares when no photos
     return (
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute inset-0 grid grid-cols-6 gap-2 p-4 opacity-10">
-          {[...Array(36)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="aspect-square rounded-xl bg-gradient-to-br from-pink-500/30 to-purple-600/30"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{
-                duration: 3 + Math.random() * 2,
-                repeat: Infinity,
-                delay: i * 0.1,
-              }}
-            />
-          ))}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29]/90 via-[#302b63]/85 to-[#24243e]/90" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
       </div>
     );
   }
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      <div className="absolute inset-0 grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2 p-2">
+      {/* Photo grid - full visibility */}
+      <div className="absolute inset-0 grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1">
         {photos.map((photo, i) => (
           <motion.div
             key={i}
-            className="aspect-square overflow-hidden rounded-xl"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 0.4, scale: 1 }}
+            className="aspect-square overflow-hidden"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
             transition={{
-              duration: 0.5,
-              delay: i * 0.05,
+              duration: 0.8,
+              delay: i * 0.03,
             }}
           >
             <motion.img
               src={photo}
               alt=""
-              className="w-full h-full object-cover filter grayscale-[30%] brightness-75"
+              className="w-full h-full object-cover"
               animate={{
-                scale: [1, 1.05, 1],
+                scale: [1, 1.08, 1],
               }}
               transition={{
-                duration: 10 + Math.random() * 5,
+                duration: 12 + Math.random() * 6,
                 repeat: Infinity,
-                delay: i * 0.2,
+                delay: i * 0.3,
               }}
             />
           </motion.div>
         ))}
       </div>
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29]/85 via-[#302b63]/80 to-[#24243e]/85" />
+      {/* Subtle vignette for center focus - очень лёгкий */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,rgba(0,0,0,0.4)_100%)]" />
     </div>
   );
 }
