@@ -34,6 +34,7 @@ export interface SessionState {
   deadline_ts: string | null;
   song_stop_ts: string | null;
   leaderboard: Player[];
+  removed_guests?: string[];
 }
 
 export interface PlayerResult {

@@ -20,7 +20,7 @@ function getSessionCode(): string {
 
 function App() {
   const sessionCode = getSessionCode();
-  const { state, results, isConnected, answerCount, playerCount, songData, playerNames, removedGuests } = useGameSocket(sessionCode);
+  const { state, results, isConnected, answerCount, playerCount, songData, playerNames, removedGuests, send } = useGameSocket(sessionCode);
   
   // Promo video state - show once when game starts (transition from lobby)
   const [showPromo, setShowPromo] = useState(false);
@@ -91,6 +91,7 @@ function App() {
             deadline={state.deadline_ts}
             answerCount={answerCount}
             playerCount={playerCount}
+            onTimerStart={() => send({ type: 'timer_started', round_id: state.current_round?.id })}
           />
         );
 

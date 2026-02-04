@@ -15,9 +15,10 @@ interface QuestionScreenProps {
   deadline: string | null;
   answerCount: number;
   playerCount: number;
+  onTimerStart?: () => void;
 }
 
-export function QuestionScreen({ round, deadline, answerCount, playerCount }: QuestionScreenProps) {
+export function QuestionScreen({ round, deadline, answerCount, playerCount, onTimerStart }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
   
   // Hedra TTS (голос Наташи) с fallback на EdgeTTS
@@ -74,6 +75,9 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount }: Qu
         now.setSeconds(now.getSeconds() + 20);
         setTimerDeadline(now.toISOString());
         setTimerStarted(true);
+        
+        // Сигнал бэкенду что таймер запущен — теперь отправить вопросы в телеграм
+        onTimerStart?.();
         
         // Запускаем музыку сразу после окончания речи
         musicRef.current = new Audio(TIMER_MUSIC_URL);

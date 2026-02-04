@@ -10,6 +10,7 @@ interface UseGameSocketReturn {
   songData: { url: string; stopTs: string } | null;
   playerNames: string[];
   removedGuests: string[];
+  send: (message: object) => void;
 }
 
 export function useGameSocket(sessionCode: string): UseGameSocketReturn {
@@ -23,7 +24,7 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
   const [removedGuests, setRemovedGuests] = useState<string[]>([]);
   
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number>();
+  const reconnectTimeoutRef = useRef<number | undefined>(undefined);
 
   const connect = useCallback(() => {
     const isProd = import.meta.env.PROD;
@@ -99,9 +100,13 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
             options: event.data.options,
             time_limit_seconds: event.data.time_limit_seconds,
             status: 'active',
-            block_type: event.data.block_type as 'facts' | 'music',
+            block_type: event.data.block_type,
             order: 0,
+            points: event.data.points || 10,
             image_url: event.data.image_url,
+            image_urls: event.data.image_urls,
+            background_music_url: event.data.background_music_url,
+            background_music_duration: event.data.background_music_duration,
           },
         } : null);
         setAnswerCount(0);
@@ -153,5 +158,11 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
     };
   }, [connect]);
 
-  return { state, results, isConnected, answerCount, playerCount, songData, playerNames, removedGuests };
+  const send = useCallback((message: object) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+    }
+  }, []);
+
+  return { state, results, isConnected, answerCount, playerCount, songData, playerNames, removedGuests, send };
 }
