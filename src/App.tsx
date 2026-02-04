@@ -44,6 +44,9 @@ function App() {
 
   // Автоматическое завершение раунда когда таймер истекает
   const handleTimerEnd = useCallback(async () => {
+    // Даём 2 секунды на то, чтобы последние ответы дошли до сервера
+    await new Promise(r => setTimeout(r, 2000));
+    
     try {
       await fetch(getApiUrl(`/api/host/${sessionCode}/end_round/`), {
         method: 'POST',
