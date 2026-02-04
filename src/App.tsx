@@ -147,9 +147,10 @@ function App() {
         onClick={unlockAudio}
       >
         <motion.div
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
           className="glass rounded-3xl p-12 text-center"
+          style={{ transform: 'rotate(0deg)' }}
         >
           <Volume2 className="w-24 h-24 mx-auto mb-6 text-pink-500" />
           <h1 className="text-4xl font-bold mb-4">🎉 {state?.title || 'Quiz Party'}</h1>
