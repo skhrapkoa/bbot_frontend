@@ -52,7 +52,7 @@ export function LobbyScreen({ title, sessionCode, playerCount, botLink }: LobbyS
         className="mb-12"
       >
         <div className="glass rounded-2xl px-8 py-4 text-center">
-          <div className="text-sm text-white/50 mb-1">Session Code</div>
+          <div className="text-sm text-white/50 mb-1">Код сессии</div>
           <div className="text-5xl font-bold tracking-widest text-pink-500">
             {sessionCode}
           </div>
@@ -76,9 +76,9 @@ export function LobbyScreen({ title, sessionCode, playerCount, botLink }: LobbyS
         transition={{ delay: 0.6 }}
         className="text-xl text-center text-white/70 mb-8 max-w-lg"
       >
-        Scan QR code or open{' '}
+        Сканируй QR код или открой{' '}
         <span className="text-pink-500 font-semibold">{botLink}</span>
-        {' '}to join the game!
+        {' '}чтобы присоединиться!
       </motion.p>
 
       {/* Player counter */}
@@ -102,7 +102,7 @@ export function LobbyScreen({ title, sessionCode, playerCount, botLink }: LobbyS
           transition={{ duration: 1, repeat: Infinity }}
           className="w-3 h-3 bg-pink-500 rounded-full"
         />
-        <span className="text-white/50">Waiting for host to start...</span>
+        <span className="text-white/50">Ожидаем начала игры...</span>
       </motion.div>
     </div>
   );
