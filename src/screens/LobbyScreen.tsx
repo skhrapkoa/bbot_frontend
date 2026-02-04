@@ -10,6 +10,8 @@ const LOBBY_MUSIC = [
   '/audio/lobby/Ирина Аллегрова - С днем рождения.mp3',
   '/audio/lobby/Чай вдвоем - День рождения.mp3',
   '/audio/lobby/Юрий Шатунов - С Днём Рождения.mp3',
+  '/audio/lobby/igor-nikolaev-den-rozhdenija.mp3',
+  '/audio/lobby/Николай Басков - День Рождения.mp3',
 ];
 
 interface LobbyScreenProps {
