@@ -8,6 +8,7 @@ interface LobbyScreenProps {
   playerCount: number;
   botLink: string;
   registeredNames?: string[];
+  removedGuests?: string[];
 }
 
 // Ожидаемые гости
@@ -20,7 +21,7 @@ const EXPECTED_GUESTS = [
 // Import photos
 const photoModules = import.meta.glob('/public/photos/*.{jpg,jpeg,png,webp}', { eager: true, query: '?url', import: 'default' });
 
-export function LobbyScreen({ title, playerCount, botLink, registeredNames = [] }: LobbyScreenProps) {
+export function LobbyScreen({ title, playerCount, botLink, registeredNames = [], removedGuests = [] }: LobbyScreenProps) {
   const [photos, setPhotos] = useState<string[]>([]);
 
   useEffect(() => {
@@ -34,10 +35,14 @@ export function LobbyScreen({ title, playerCount, botLink, registeredNames = [] 
 
   const remainingGuests = useMemo(() => {
     const registered = registeredNames.map(n => n.toLowerCase().trim());
-    return EXPECTED_GUESTS.filter(name => 
-      !registered.some(r => r.includes(name.toLowerCase()) || name.toLowerCase().includes(r))
-    );
-  }, [registeredNames]);
+    return EXPECTED_GUESTS.filter(name => {
+      // Скрываем зарегистрированных
+      const isRegistered = registered.some(r => r.includes(name.toLowerCase()) || name.toLowerCase().includes(r));
+      // Скрываем удалённых хостом
+      const isRemoved = removedGuests.includes(name);
+      return !isRegistered && !isRemoved;
+    });
+  }, [registeredNames, removedGuests]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e]">

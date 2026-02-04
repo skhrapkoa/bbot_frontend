@@ -20,7 +20,7 @@ function getSessionCode(): string {
 
 function App() {
   const sessionCode = getSessionCode();
-  const { state, results, isConnected, answerCount, playerCount, songData, playerNames } = useGameSocket(sessionCode);
+  const { state, results, isConnected, answerCount, playerCount, songData, playerNames, removedGuests } = useGameSocket(sessionCode);
   
   // Promo video state - show once when game starts (transition from lobby)
   const [showPromo, setShowPromo] = useState(false);
@@ -79,6 +79,7 @@ function App() {
             playerCount={playerCount}
             botLink={getBotLink(sessionCode)}
             registeredNames={playerNames}
+            removedGuests={removedGuests}
           />
         );
 

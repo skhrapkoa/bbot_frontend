@@ -9,6 +9,7 @@ interface UseGameSocketReturn {
   playerCount: number;
   songData: { url: string; stopTs: string } | null;
   playerNames: string[];
+  removedGuests: string[];
 }
 
 export function useGameSocket(sessionCode: string): UseGameSocketReturn {
@@ -19,6 +20,7 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
   const [playerCount, setPlayerCount] = useState(0);
   const [songData, setSongData] = useState<{ url: string; stopTs: string } | null>(null);
   const [playerNames, setPlayerNames] = useState<string[]>([]);
+  const [removedGuests, setRemovedGuests] = useState<string[]>([]);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number>();
@@ -68,6 +70,10 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
         // Собираем имена из leaderboard
         if (event.data.leaderboard) {
           setPlayerNames(event.data.leaderboard.map((p: { name: string }) => p.name));
+        }
+        // Обновляем список удалённых гостей
+        if (event.data.removed_guests) {
+          setRemovedGuests(event.data.removed_guests);
         }
         if (event.data.current_round) {
           setAnswerCount(event.data.current_round.answer_count || 0);
@@ -147,5 +153,5 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
     };
   }, [connect]);
 
-  return { state, results, isConnected, answerCount, playerCount, songData, playerNames };
+  return { state, results, isConnected, answerCount, playerCount, songData, playerNames, removedGuests };
 }
