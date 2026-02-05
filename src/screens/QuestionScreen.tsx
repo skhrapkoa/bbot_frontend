@@ -91,15 +91,18 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
         onTimerStart?.();
         
         // Запускаем музыку сразу после окончания речи
-        musicRef.current = new Audio(TIMER_MUSIC_URL);
-        musicRef.current.volume = 0.3;
-        musicRef.current.loop = true;
+        // Для музыкального раунда - играем песню из вопроса
+        // Для обычного раунда - фоновая музыка таймера
+        const musicUrl = isMusic && round.song_url ? round.song_url : TIMER_MUSIC_URL;
+        musicRef.current = new Audio(musicUrl);
+        musicRef.current.volume = isMusic ? 0.7 : 0.3;  // Песня громче
+        musicRef.current.loop = !isMusic;  // Песню не зацикливаем
         musicRef.current.play().catch(() => {});
       }, 300);
       
       return () => clearTimeout(timer);
     }
-  }, [round.id, fullSpeechText, speak]);
+  }, [round.id, fullSpeechText, speak, isMusic, round.song_url, onTimerStart, timeLimit]);
   
   // Остановить музыку при уходе со страницы
   useEffect(() => {
