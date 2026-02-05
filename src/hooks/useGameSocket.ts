@@ -107,6 +107,8 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
             image_urls: event.data.image_urls,
             background_music_url: event.data.background_music_url,
             background_music_duration: event.data.background_music_duration,
+            song_url: event.data.song_url,
+            song_duration_seconds: event.data.song_duration_seconds,
           },
         } : null);
         setAnswerCount(0);
