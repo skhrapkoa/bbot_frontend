@@ -35,6 +35,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   const spokenRoundRef = useRef<number | null>(null);
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
+  const showListeningAnimation = isMusic && !timerStarted;
   
   // Время на ответ - хардкод 15 секунд
   const timeLimit = 15;
@@ -310,17 +311,41 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
           {round.question_text}
         </motion.h2>
 
-        {/* Options grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
-          {round.options.map((option, index) => (
-            <OptionCard
-              key={index}
-              option={option}
-              index={index}
-              total={round.options.length}
-            />
-          ))}
-        </div>
+        {/* Options grid or listening animation for music */}
+        {showListeningAnimation ? (
+          <motion.div
+            key="listening"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center gap-6"
+          >
+            <motion.div className="flex items-end gap-2">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <motion.span
+                  key={i}
+                  className="w-3 md:w-4 rounded-full bg-gradient-to-t from-pink-500 to-rose-400"
+                  style={{ height: 48, transformOrigin: 'bottom' }}
+                  animate={{ scaleY: [0.4, 1, 0.6] }}
+                  transition={{ duration: 0.6, repeat: Infinity, repeatType: 'mirror', delay: i * 0.1 }}
+                />
+              ))}
+            </motion.div>
+            <div className="text-2xl md:text-3xl text-white/70 font-semibold">
+              Слушаем фрагмент...
+            </div>
+          </motion.div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
+            {round.options.map((option, index) => (
+              <OptionCard
+                key={index}
+                option={option}
+                index={index}
+                total={round.options.length}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Answer progress bar */}
