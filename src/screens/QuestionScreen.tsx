@@ -87,6 +87,9 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
           console.warn('TTS failed:', e);
         }
         
+        // DEBUG: показываем что приходит
+        console.log('🎵 DEBUG:', { isMusic, block_type: round.block_type, song_url: round.song_url, round_id: round.id });
+        
         // Для МУЗЫКАЛЬНОГО раунда - сначала играем песню, потом варианты + таймер
         if (isMusic && round.song_url) {
           console.log('🎵 MUSIC ROUND! Playing song:', round.song_url);
