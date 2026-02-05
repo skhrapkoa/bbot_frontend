@@ -69,7 +69,7 @@ export interface RoundResults {
 export type GameEvent =
   | { type: 'session_state'; data: SessionState }
   | { type: 'player_joined'; data: { player_name: string; player_count: number } }
-  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: BlockType; points: number; image_url?: string; image_urls?: string[]; background_music_url?: string; background_music_duration?: number } }
+  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: BlockType; points: number; image_url?: string; image_urls?: string[]; background_music_url?: string; background_music_duration?: number; song_url?: string; song_duration_seconds?: number } }
   | { type: 'answer_received'; data: { answer_count: number; player_count: number } }
   | { type: 'round_ended'; data: RoundResults }
   | { type: 'play_song'; data: { song_url: string; duration: number; song_stop_ts: string } }

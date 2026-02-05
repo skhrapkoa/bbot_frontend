@@ -41,9 +41,15 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   
   // Формируем полный текст для озвучки
   // Для photo_guess - только вопрос, без вариантов
+  // Для music - только вопрос (песня играет отдельно)
   const fullSpeechText = useMemo(() => {
     if (isPhotoGuess) {
       return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
+    }
+    
+    // Для музыкального раунда - только вопрос, потом будет песня
+    if (isMusic) {
+      return `${round.question_text}... Слушаем!`;
     }
     
     const letters = ['А', 'Б', 'В', 'Г'];
@@ -52,7 +58,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       .join('. ');
     
     return `${round.question_text}... ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
-  }, [round.question_text, round.options, timeLimit, isPhotoGuess]);
+  }, [round.question_text, round.options, timeLimit, isPhotoGuess, isMusic]);
   
   // Сброс при смене раунда
   useEffect(() => {
@@ -81,30 +87,58 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
           console.warn('TTS failed:', e);
         }
         
-        // Устанавливаем дедлайн на timeLimit секунд от сейчас
-        const now = new Date();
-        now.setSeconds(now.getSeconds() + timeLimit);
-        setTimerDeadline(now.toISOString());
-        setTimerStarted(true);
-        
-        // Сигнал бэкенду что таймер запущен — теперь отправить вопросы в телеграм
-        onTimerStart?.();
-        
-        // Запускаем музыку сразу после окончания речи
-        // Для музыкального раунда - играем песню из вопроса
-        // Для обычного раунда - фоновая музыка таймера
-        console.log('🎵 Music round?', isMusic, 'song_url:', round.song_url, 'block_type:', round.block_type);
-        const musicUrl = isMusic && round.song_url ? round.song_url : TIMER_MUSIC_URL;
-        console.log('🎵 Playing:', musicUrl);
-        musicRef.current = new Audio(musicUrl);
-        musicRef.current.volume = isMusic ? 0.7 : 0.3;  // Песня громче
-        musicRef.current.loop = !isMusic;  // Песню не зацикливаем
-        musicRef.current.play().catch((e) => console.error('🎵 Play error:', e));
+        // Для МУЗЫКАЛЬНОГО раунда - сначала играем песню, потом варианты + таймер
+        if (isMusic && round.song_url) {
+          console.log('🎵 MUSIC ROUND! Playing song:', round.song_url);
+          
+          // Играем песню
+          musicRef.current = new Audio(round.song_url);
+          musicRef.current.volume = 0.8;
+          
+          // Определяем длительность фрагмента (из бэка или 15 сек по умолчанию)
+          const songDuration = round.song_duration_seconds || 15;
+          
+          musicRef.current.play().catch((e) => console.error('🎵 Play error:', e));
+          
+          // Через songDuration секунд - останавливаем песню и запускаем таймер
+          setTimeout(() => {
+            if (musicRef.current) {
+              musicRef.current.pause();
+              musicRef.current = null;
+            }
+            
+            // Теперь запускаем таймер для ответа
+            const now = new Date();
+            now.setSeconds(now.getSeconds() + timeLimit);
+            setTimerDeadline(now.toISOString());
+            setTimerStarted(true);
+            onTimerStart?.();
+            
+            // Фоновая музыка таймера
+            musicRef.current = new Audio(TIMER_MUSIC_URL);
+            musicRef.current.volume = 0.3;
+            musicRef.current.loop = true;
+            musicRef.current.play().catch(() => {});
+          }, songDuration * 1000);
+          
+        } else {
+          // Обычный раунд - сразу таймер + фоновая музыка
+          const now = new Date();
+          now.setSeconds(now.getSeconds() + timeLimit);
+          setTimerDeadline(now.toISOString());
+          setTimerStarted(true);
+          onTimerStart?.();
+          
+          musicRef.current = new Audio(TIMER_MUSIC_URL);
+          musicRef.current.volume = 0.3;
+          musicRef.current.loop = true;
+          musicRef.current.play().catch(() => {});
+        }
       }, 300);
       
       return () => clearTimeout(timer);
     }
-  }, [round.id, fullSpeechText, speak, isMusic, round.song_url, onTimerStart, timeLimit]);
+  }, [round.id, fullSpeechText, speak, isMusic, round.song_url, round.song_duration_seconds, onTimerStart, timeLimit]);
   
   // Остановить музыку при уходе со страницы
   useEffect(() => {
