@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { OptionCard } from '../components/OptionCard';
 import { Leaderboard } from '../components/Leaderboard';
 import { Confetti } from '../components/Confetti';
+import { GuestPhoto } from '../components/GuestPhoto';
 import { useHedraTTS } from '../hooks/useHedraTTS';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { RoundResults, PlayerResult } from '../types';
@@ -118,7 +119,11 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     leaderboard,
     image_url,
     correct_players = [],
-    incorrect_players = []
+    incorrect_players = [],
+    // Photo Guess fields
+    is_photo_guess,
+    guest_name,
+    reveal_photo_url
   } = results;
   
   // TTS: Hedra > EdgeTTS
@@ -154,8 +159,13 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     spokenRef.current = results.round_id;
     
     const runSequence = async () => {
-      // Сразу говорим "Время вышло!" - без задержки
-      await speak(`Время вышло! Правильный ответ: ${correct_answer_text}`);
+      // Для photo_guess - особая озвучка
+      if (is_photo_guess && guest_name) {
+        await speak(`Время вышло! Это ${guest_name}!`);
+      } else {
+        // Стандартная озвучка
+        await speak(`Время вышло! Правильный ответ: ${correct_answer_text}`);
+      }
       
       // Показываем статистику 5 секунд, затем переходим к таблице лидеров
       await new Promise(r => setTimeout(r, 5000));
@@ -174,7 +184,7 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     };
     
     runSequence();
-  }, [results.round_id, correct_answer_text, leaderboard, speak]);
+  }, [results.round_id, correct_answer_text, leaderboard, speak, is_photo_guess, guest_name]);
 
   // Этап 1: Распределение ответов (большой экран)
   if (phase === 'stats') {
@@ -190,7 +200,50 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
         >
           <h1 className="text-6xl font-bold gradient-text mb-4">Результаты!</h1>
           
-          {image_url && (
+          {/* For photo_guess: show reveal photo (current photo) prominently */}
+          {is_photo_guess && reveal_photo_url ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center gap-4 mb-4"
+            >
+              <div className="flex gap-6 items-center">
+                {image_url && (
+                  <div className="text-center">
+                    <GuestPhoto
+                      basePath={image_url}
+                      alt="Старое фото"
+                      className="max-h-[20vh] rounded-2xl shadow-lg object-contain border-4 border-white/20"
+                    />
+                    <p className="text-sm text-white/50 mt-2">Было</p>
+                  </div>
+                )}
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.3, type: 'spring' }}
+                  className="text-4xl"
+                >
+                  →
+                </motion.div>
+                <div className="text-center">
+                  <GuestPhoto
+                    basePath={reveal_photo_url}
+                    alt={guest_name || 'Гость'}
+                    className="max-h-[25vh] rounded-2xl shadow-lg object-contain border-4 border-green-500/50"
+                  />
+                  <motion.p 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-2xl font-bold text-green-400 mt-2"
+                  >
+                    {guest_name}
+                  </motion.p>
+                </div>
+              </div>
+            </motion.div>
+          ) : image_url && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

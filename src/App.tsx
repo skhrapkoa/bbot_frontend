@@ -178,10 +178,10 @@ function App() {
     }
   };
 
-  // Show promo video when game starts
-  if (showPromo) {
-    return <PromoScreen onComplete={handlePromoComplete} />;
-  }
+  // Promo video disabled for now
+  // if (showPromo) {
+  //   return <PromoScreen onComplete={handlePromoComplete} />;
+  // }
 
   return (
     <>

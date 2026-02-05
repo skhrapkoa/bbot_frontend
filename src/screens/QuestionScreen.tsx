@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
+import { GuestPhoto } from '../components/GuestPhoto';
 import { useHedraTTS } from '../hooks/useHedraTTS';
 import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
@@ -21,6 +22,7 @@ interface QuestionScreenProps {
 
 export function QuestionScreen({ round, deadline, answerCount, playerCount, onTimerStart, onTimerEnd }: QuestionScreenProps) {
   const isMusic = round.block_type === 'music';
+  const isPhotoGuess = round.block_type === 'photo_guess' || round.is_photo_guess;
   
   // Hedra TTS (голос Наташи) с fallback на EdgeTTS
   const hedraTTS = useHedraTTS();
@@ -37,15 +39,20 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   // Время на ответ - хардкод 15 секунд
   const timeLimit = 15;
   
-  // Формируем полный текст для озвучки (без "Вариант" для скорости)
+  // Формируем полный текст для озвучки
+  // Для photo_guess - только вопрос, без вариантов
   const fullSpeechText = useMemo(() => {
+    if (isPhotoGuess) {
+      return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
+    }
+    
     const letters = ['А', 'Б', 'В', 'Г'];
     const optionsText = round.options
       .map((opt, i) => `${letters[i] || i + 1}. ${opt}`)
       .join('. ');
     
     return `${round.question_text}... ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
-  }, [round.question_text, round.options, timeLimit]);
+  }, [round.question_text, round.options, timeLimit, isPhotoGuess]);
   
   // Сброс при смене раунда
   useEffect(() => {
@@ -104,6 +111,90 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     };
   }, []);
 
+  // Photo Guess: fullscreen photo layout
+  if (isPhotoGuess) {
+    return (
+      <div className="min-h-screen flex flex-col relative overflow-hidden">
+        {/* Fullscreen photo background */}
+        {round.image_url && (
+          <motion.div
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 flex items-center justify-center p-4"
+          >
+            <GuestPhoto
+              basePath={round.image_url}
+              alt="Кто это?"
+              className="max-h-[85vh] max-w-[90vw] rounded-3xl shadow-2xl object-contain border-4 border-white/20"
+            />
+          </motion.div>
+        )}
+
+        {/* Overlay with question and timer */}
+        <div className="relative z-10 flex flex-col min-h-screen p-6">
+          {/* Header */}
+          <div className="flex justify-between items-start">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="glass rounded-2xl px-6 py-3"
+            >
+              <span className="text-2xl">📸 Раунд {round.order || 1}</span>
+            </motion.div>
+
+            <PlayerCounter count={playerCount} answered={answerCount} showAnswered />
+          </div>
+
+          {/* Question at bottom */}
+          <div className="flex-1" />
+          
+          <div className="flex items-end justify-between gap-8">
+            {/* Question text */}
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg max-w-2xl"
+              style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.8)' }}
+            >
+              {round.question_text}
+            </motion.h2>
+
+            {/* Timer */}
+            {timerStarted && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 200 }}
+              >
+                <Timer deadline={timerDeadline} size="large" onEnd={onTimerEnd} />
+              </motion.div>
+            )}
+          </div>
+
+          {/* Progress bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6"
+          >
+            <div className="glass rounded-full p-2">
+              <motion.div
+                className="h-3 bg-gradient-to-r from-pink-500 to-rose-500 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${(answerCount / Math.max(playerCount, 1)) * 100}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <p className="text-center mt-2 text-white/70">
+              {answerCount} из {playerCount} ответили
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular question layout
   return (
     <div className="min-h-screen flex flex-col p-8">
       {/* Header */}

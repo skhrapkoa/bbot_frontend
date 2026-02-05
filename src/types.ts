@@ -5,7 +5,7 @@ export interface Player {
   photo_url?: string;
 }
 
-export type BlockType = 'facts' | 'music' | 'photo_fun' | 'guess_word';
+export type BlockType = 'facts' | 'music' | 'photo_fun' | 'guess_word' | 'photo_guess';
 
 export interface Round {
   id: number;
@@ -23,6 +23,11 @@ export interface Round {
   song_duration_seconds?: number;
   background_music_url?: string;  // for photo_fun blocks
   background_music_duration?: number;
+  // Photo Guess fields
+  is_photo_guess?: boolean;
+  guest_name?: string;
+  photo_folder?: string;  // young or old
+  reveal_photo_url?: string;
 }
 
 export interface SessionState {
@@ -55,6 +60,10 @@ export interface RoundResults {
   correct_players: PlayerResult[];
   incorrect_players: PlayerResult[];
   leaderboard: Player[];
+  // Photo Guess fields
+  is_photo_guess?: boolean;
+  guest_name?: string;
+  reveal_photo_url?: string;
 }
 
 export type GameEvent =
