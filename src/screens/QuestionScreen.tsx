@@ -93,11 +93,13 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
         // Запускаем музыку сразу после окончания речи
         // Для музыкального раунда - играем песню из вопроса
         // Для обычного раунда - фоновая музыка таймера
+        console.log('🎵 Music round?', isMusic, 'song_url:', round.song_url, 'block_type:', round.block_type);
         const musicUrl = isMusic && round.song_url ? round.song_url : TIMER_MUSIC_URL;
+        console.log('🎵 Playing:', musicUrl);
         musicRef.current = new Audio(musicUrl);
         musicRef.current.volume = isMusic ? 0.7 : 0.3;  // Песня громче
         musicRef.current.loop = !isMusic;  // Песню не зацикливаем
-        musicRef.current.play().catch(() => {});
+        musicRef.current.play().catch((e) => console.error('🎵 Play error:', e));
       }, 300);
       
       return () => clearTimeout(timer);
