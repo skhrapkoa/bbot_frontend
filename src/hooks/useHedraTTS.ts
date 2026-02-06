@@ -120,12 +120,8 @@ export function useHedraTTS(options: UseHedraTTSOptions = {}) {
     const data = await response.json();
     
     // Если уже готово — используем прокси URL вместо прямого Hedra CDN (CORS/ORB)
-    if (data.audio_url && data.task_id) {
+    if (data.task_id && (data.audio_url || data.status === 'completed')) {
       return `${API_BASE_URL}/api/hedra-tts/${data.task_id}/audio/`;
-    }
-    if (data.audio_url) {
-      // Fallback: нет task_id, но есть url — попробуем напрямую
-      return data.audio_url;
     }
     
     // Polling
@@ -161,20 +157,8 @@ export function useHedraTTS(options: UseHedraTTSOptions = {}) {
       abortRef.current = controller;
 
       try {
-        let audioUrl: string;
-        
-        // Пробуем напрямую, если есть API ключ
-        if (HEDRA_API_KEY && HEDRA_VOICE_ID) {
-          try {
-            audioUrl = await generateViaHedra(text, controller.signal);
-          } catch (e) {
-            console.warn('Direct Hedra API failed (CORS?), trying backend:', e);
-            audioUrl = await generateViaBackend(text, controller.signal);
-          }
-        } else {
-          // Через бэкенд
-          audioUrl = await generateViaBackend(text, controller.signal);
-        }
+        // Всегда через бэкенд-прокси (прямой Hedra API блокируется CORS/ORB)
+        const audioUrl = await generateViaBackend(text, controller.signal);
 
         setState(s => ({ ...s, isLoading: false, isPlaying: false }));
 
@@ -208,7 +192,7 @@ export function useHedraTTS(options: UseHedraTTSOptions = {}) {
         reject(error);
       }
     });
-  }, [generateViaHedra, generateViaBackend]);
+  }, [generateViaBackend]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
