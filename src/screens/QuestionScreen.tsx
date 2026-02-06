@@ -120,11 +120,6 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
         const trimmed = text.trim();
         if (!trimmed) return;
         while (!cancelled) {
-          if (!hedraTTS.isConfigured) {
-            console.error('🎵 Hedra TTS is not configured. Waiting...');
-            await new Promise(r => setTimeout(r, 2000));
-            continue;
-          }
           try {
             await hedraTTS.speak(trimmed);
             return;

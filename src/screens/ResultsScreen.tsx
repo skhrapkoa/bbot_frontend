@@ -129,10 +129,6 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
   const hedraTTS = useHedraTTS();
   
   const speak = useCallback(async (text: string): Promise<void> => {
-    if (!hedraTTS.isConfigured) {
-      console.error('🔊 Hedra TTS is not configured');
-      return;
-    }
     try {
       await hedraTTS.speak(text);
     } catch (e) {
