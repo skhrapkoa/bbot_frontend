@@ -248,7 +248,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
               animate={{ opacity: 1, x: 0 }}
               className="glass rounded-2xl px-6 py-3"
             >
-              <span className="text-2xl">📸 Раунд {round.order || 1}</span>
+              <span className="text-2xl">{round.block_title || `Раунд ${round.order || 1}`}</span>
             </motion.div>
 
             <PlayerCounter count={playerCount} answered={answerCount} showAnswered />
@@ -314,7 +314,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
           className="glass rounded-2xl px-6 py-3"
         >
           <span className="text-2xl">
-            {isMusic ? '🎵' : '❓'} Round {round.order || 1}
+            {round.block_title || `Round ${round.order || 1}`}
           </span>
         </motion.div>
 

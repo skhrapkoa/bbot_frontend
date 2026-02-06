@@ -5,7 +5,7 @@ import { LobbyScreen } from './screens/LobbyScreen';
 import { QuestionScreen } from './screens/QuestionScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { MusicScreen } from './screens/MusicScreen';
-import { PromoScreen } from './screens/PromoScreen';
+import { VideoInterludeScreen } from './screens/VideoInterludeScreen';
 import { Wifi, WifiOff } from 'lucide-react';
 import { getBotLink, getApiUrl } from './config';
 
@@ -22,25 +22,87 @@ function App() {
   const sessionCode = getSessionCode();
   const { state, results, isConnected, answerCount, playerCount, songData, playerNames, removedGuests, send } = useGameSocket(sessionCode);
   
-  // Promo video state - show once when game starts (transition from lobby)
-  const [showPromo, setShowPromo] = useState(false);
-  const [promoCompleted, setPromoCompleted] = useState(false);
-  const prevStatusRef = useRef<string | null>(null);
+  // ===== Video interlude system =====
+  // Numbered videos in /video/interludes/: 
+  //   odd (1,3,5...) = intro before block, even (2,4...) = break after block (except last)
+  //   Block K (0-indexed): intro = K*2+1, break = K*2+2
+  //   Finale = total_blocks*2 (replaces last block's break)
+  const [videoInterlude, setVideoInterlude] = useState<number | null>(null);
+  const prevBlockOrderRef = useRef<number>(-1);
+  const finalePlayedRef = useRef(false);
+  const initializedRef = useRef(false);
+  const breakVideoTimerRef = useRef<number | undefined>(undefined);
 
-  // Detect when game starts (lobby → question_active) and trigger promo
+  // Initialize on first state — if page refreshed mid-game, don't replay intro
   useEffect(() => {
-    if (state && prevStatusRef.current === 'lobby' && state.status !== 'lobby' && !promoCompleted) {
-      setShowPromo(true);
+    if (!state || initializedRef.current) return;
+    initializedRef.current = true;
+    if (state.status !== 'lobby' && state.current_round?.block_order !== undefined) {
+      prevBlockOrderRef.current = state.current_round.block_order;
     }
-    if (state) {
-      prevStatusRef.current = state.status;
+    if (state.status === 'finished') {
+      finalePlayedRef.current = true;
     }
-  }, [state, promoCompleted]);
+  }, [state]);
 
-  const handlePromoComplete = () => {
-    setShowPromo(false);
-    setPromoCompleted(true);
-  };
+  // Detect block transitions → intro videos
+  useEffect(() => {
+    if (!state || !initializedRef.current) return;
+    
+    if (state.status === 'question_active' && state.current_round?.block_order !== undefined) {
+      const blockOrder = state.current_round.block_order;
+      if (blockOrder !== prevBlockOrderRef.current) {
+        prevBlockOrderRef.current = blockOrder;
+        // Cancel any pending break video
+        if (breakVideoTimerRef.current) {
+          clearTimeout(breakVideoTimerRef.current);
+          breakVideoTimerRef.current = undefined;
+        }
+        setVideoInterlude(blockOrder * 2 + 1);
+      }
+    }
+    
+    // Detect game finished → finale video
+    if (state.status === 'finished' && !finalePlayedRef.current) {
+      finalePlayedRef.current = true;
+      if (breakVideoTimerRef.current) {
+        clearTimeout(breakVideoTimerRef.current);
+        breakVideoTimerRef.current = undefined;
+      }
+      const totalBlocks = state.total_blocks || 3;
+      setVideoInterlude(totalBlocks * 2);
+    }
+    
+    // Reset on lobby
+    if (state.status === 'lobby') {
+      prevBlockOrderRef.current = -1;
+      finalePlayedRef.current = false;
+      initializedRef.current = false;
+    }
+  }, [state]);
+
+  // Detect block completion → schedule break video after results display (skip last block)
+  useEffect(() => {
+    if (!results?.block_completed || results.completed_block_order === undefined) return;
+    
+    // Skip break video for the last block — finale plays on 'finished' instead
+    const totalBlocks = state?.total_blocks || 3;
+    if (results.completed_block_order >= totalBlocks - 1) return;
+    
+    const breakVideoNum = results.completed_block_order * 2 + 2;
+    // Wait 20 seconds for results sequence (stats + TTS + leaderboard)
+    breakVideoTimerRef.current = window.setTimeout(() => {
+      setVideoInterlude(breakVideoNum);
+      breakVideoTimerRef.current = undefined;
+    }, 20000);
+    
+    return () => {
+      if (breakVideoTimerRef.current) {
+        clearTimeout(breakVideoTimerRef.current);
+        breakVideoTimerRef.current = undefined;
+      }
+    };
+  }, [results?.round_id, results?.block_completed, results?.completed_block_order]);
 
   // Автоматическое завершение раунда когда таймер истекает
   const handleTimerEnd = useCallback(async () => {
@@ -178,10 +240,15 @@ function App() {
     }
   };
 
-  // Promo video disabled for now
-  // if (showPromo) {
-  //   return <PromoScreen onComplete={handlePromoComplete} />;
-  // }
+  // Video interlude overlay
+  if (videoInterlude !== null) {
+    return (
+      <VideoInterludeScreen
+        videoNumber={videoInterlude}
+        onComplete={() => setVideoInterlude(null)}
+      />
+    );
+  }
 
   return (
     <>

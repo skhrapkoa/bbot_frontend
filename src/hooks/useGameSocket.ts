@@ -79,6 +79,7 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
         if (event.data.current_round) {
           setAnswerCount(event.data.current_round.answer_count || 0);
         }
+        // total_blocks хранится в state
         break;
 
       case 'player_joined':
@@ -101,6 +102,8 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
             time_limit_seconds: event.data.time_limit_seconds,
             status: 'active',
             block_type: event.data.block_type,
+            block_order: event.data.block_order,
+            block_title: event.data.block_title,
             order: 0,
             points: event.data.points || 10,
             image_url: event.data.image_url,

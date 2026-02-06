@@ -15,6 +15,8 @@ export interface Round {
   status: 'waiting' | 'active' | 'ended';
   answer_count?: number;
   block_type: BlockType;
+  block_order?: number;
+  block_title?: string;
   order: number;
   points: number;
   image_url?: string;
@@ -39,6 +41,7 @@ export interface SessionState {
   title: string;
   status: 'lobby' | 'question_active' | 'reveal' | 'playing_song' | 'paused' | 'finished';
   player_count: number;
+  total_blocks?: number;
   current_round: Round | null;
   deadline_ts: string | null;
   song_stop_ts: string | null;
@@ -68,12 +71,15 @@ export interface RoundResults {
   is_photo_guess?: boolean;
   guest_name?: string;
   reveal_photo_url?: string;
+  // Block completion
+  block_completed?: boolean;
+  completed_block_order?: number;
 }
 
 export type GameEvent =
   | { type: 'session_state'; data: SessionState }
   | { type: 'player_joined'; data: { player_name: string; player_count: number } }
-  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: BlockType; points: number; image_url?: string; image_urls?: string[]; background_music_url?: string; background_music_duration?: number; song_url?: string; song_duration_seconds?: number; song_start_seconds?: number; song_end_seconds?: number; reveal_start_seconds?: number; reveal_end_seconds?: number } }
+  | { type: 'round_started'; data: { round_id: number; question_text: string; options: string[]; time_limit_seconds: number; deadline_ts: string; block_type: BlockType; block_order?: number; block_title?: string; points: number; image_url?: string; image_urls?: string[]; background_music_url?: string; background_music_duration?: number; song_url?: string; song_duration_seconds?: number; song_start_seconds?: number; song_end_seconds?: number; reveal_start_seconds?: number; reveal_end_seconds?: number } }
   | { type: 'answer_received'; data: { answer_count: number; player_count: number } }
   | { type: 'round_ended'; data: RoundResults }
   | { type: 'play_song'; data: { song_url: string; duration: number; song_stop_ts: string } }
