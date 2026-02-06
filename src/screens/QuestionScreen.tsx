@@ -79,7 +79,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     // Сброс состояния
     setTimerStarted(false);
     setTimerDeadline(null);
-    setSongPlaying(isMusic);
+    setSongPlaying(isMusic && !!round.song_url);
     setOptionsLocked(true);
     
     let cancelled = false;
