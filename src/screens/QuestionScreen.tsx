@@ -144,9 +144,18 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
         
         musicRef.current = new Audio(round.song_url);
         musicRef.current.volume = 0.8;
-        musicRef.current.currentTime = startSec;
         
+        // Ждём загрузки метаданных, потом seek
         try {
+          await new Promise<void>((resolve, reject) => {
+            const audio = musicRef.current!;
+            audio.addEventListener('loadedmetadata', () => {
+              audio.currentTime = startSec;
+              resolve();
+            }, { once: true });
+            audio.addEventListener('error', () => reject(new Error('Audio load error')), { once: true });
+            audio.load();
+          });
           await musicRef.current.play();
         } catch (e) {
           console.error('🎵 Play error:', e);

@@ -211,7 +211,15 @@ export function ResultsScreen({ results, round, showConfetti = true }: ResultsSc
         
         try {
           songAudio.volume = 0.8;
-          songAudio.currentTime = revealStart;
+          // Ждём загрузки метаданных, потом seek
+          await new Promise<void>((resolve, reject) => {
+            songAudio.addEventListener('loadedmetadata', () => {
+              songAudio.currentTime = revealStart;
+              resolve();
+            }, { once: true });
+            songAudio.addEventListener('error', () => reject(new Error('Audio load error')), { once: true });
+            songAudio.load();
+          });
           await songAudio.play();
           
           // Ждём пока обрывок доиграет
@@ -226,18 +234,16 @@ export function ResultsScreen({ results, round, showConfetti = true }: ResultsSc
             songAudio.volume = Math.max(0, songAudio.volume - volumeStep);
           }
           
+          // Ставим на паузу и убираем анимацию
+          songAudio.pause();
           setSongReplaying(false);
           
-          // Пауза 1.5 сек тишины
-          songAudio.volume = 0;
-          await new Promise(r => setTimeout(r, 1500));
+          // 2 секунды тишины
+          await new Promise(r => setTimeout(r, 2000));
           
-          // Песня продолжает играть фоном с того места где остановилась, плавный fade in
+          // Продолжаем с reveal_end до конца песни, fade in
+          songAudio.currentTime = revealEnd;
           songAudio.volume = 0;
-          const targetVolume = 0.3;
-          const fadeInSteps = 10;
-          const fadeInInterval = 800 / fadeInSteps;
-          const fadeInStep = targetVolume / fadeInSteps;
           
           // Когда песня закончится — переключиться на плейлист
           songAudio.onended = () => {
@@ -249,6 +255,13 @@ export function ResultsScreen({ results, round, showConfetti = true }: ResultsSc
             bgAudio.play().catch(() => {});
           };
           
+          await songAudio.play();
+          
+          // Fade in до 0.3
+          const targetVolume = 0.3;
+          const fadeInSteps = 10;
+          const fadeInInterval = 800 / fadeInSteps;
+          const fadeInStep = targetVolume / fadeInSteps;
           for (let i = 0; i < fadeInSteps; i++) {
             await new Promise(r => setTimeout(r, fadeInInterval));
             songAudio.volume = Math.min(targetVolume, songAudio.volume + fadeInStep);
