@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
@@ -28,8 +28,11 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   const hedraTTS = useHedraTTS();
   const edgeTTS = useEdgeTTS({ voice: 'dmitry' });
   
-  // Используем Hedra если настроен, иначе Edge
-  const speak = hedraTTS.isConfigured ? hedraTTS.speak : edgeTTS.speak;
+  // Ref-ы для стабильного доступа из эффекта (без stale closure)
+  const hedraTTSRef = useRef(hedraTTS);
+  const edgeTTSRef = useRef(edgeTTS);
+  hedraTTSRef.current = hedraTTS;
+  edgeTTSRef.current = edgeTTS;
   
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
@@ -65,6 +68,33 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
   }, [round.question_text, timeLimit]);
   
+  // TTS с автоматическим fallback: Hedra → Edge → Web Speech
+  const speakWithFallback = useCallback(async (text: string): Promise<void> => {
+    const hedra = hedraTTSRef.current;
+    const edge = edgeTTSRef.current;
+    
+    if (hedra.isConfigured) {
+      try {
+        // Hedra с таймаутом 10 секунд — если дольше, значит что-то сдохло
+        await Promise.race([
+          hedra.speak(text),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Hedra timeout')), 10000)),
+        ]);
+        return;
+      } catch (e) {
+        console.warn('🔊 Hedra TTS failed, falling back to Edge TTS:', e);
+        hedra.stop(); // Прервать зависший Hedra
+      }
+    }
+    
+    // Fallback на Edge TTS (быстрый, без Celery)
+    try {
+      await edge.speak(text);
+    } catch (e) {
+      console.warn('🔊 Edge TTS also failed:', e);
+    }
+  }, []);
+
   // Главный эффект: сброс + озвучка + музыка при смене раунда
   useEffect(() => {
     if (round.id === spokenRoundRef.current) return;
@@ -135,15 +165,10 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
         await new Promise(r => setTimeout(r, 300));
         if (cancelled) return;
         
-        // Озвучиваем варианты
+        // Озвучиваем варианты (с fallback Hedra → Edge)
         console.log('🎵 Speaking options:', musicOptionsSpeechText);
-        try {
-          await speak(musicOptionsSpeechText);
-          console.log('🎵 TTS done');
-        } catch (e) {
-          console.warn('🎵 TTS failed, fallback 3s:', e);
-          await new Promise(r => setTimeout(r, 3000));
-        }
+        await speakWithFallback(musicOptionsSpeechText);
+        console.log('🎵 TTS done');
         if (cancelled) return;
         
         startTimer();
@@ -152,12 +177,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       
       // Остальные типы: озвучить → таймер
       const speechText = isPhotoGuess ? photoGuessSpeechText : optionsSpeechText;
-      
-      try {
-        await speak(speechText);
-      } catch (e) {
-        console.warn('TTS failed:', e);
-      }
+      await speakWithFallback(speechText);
       if (cancelled) return;
       startTimer();
     }, 300);

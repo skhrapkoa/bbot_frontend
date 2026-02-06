@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OptionCard } from '../components/OptionCard';
 import { Leaderboard } from '../components/Leaderboard';
@@ -126,10 +126,38 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     reveal_photo_url
   } = results;
   
-  // TTS: Hedra > EdgeTTS
+  // TTS: Hedra > EdgeTTS с автофолбэком
   const hedraTTS = useHedraTTS();
-  const { speak: edgeSpeak } = useEdgeTTS({ voice: 'dmitry' });
-  const speak = hedraTTS.isConfigured ? hedraTTS.speak : edgeSpeak;
+  const edgeTTS = useEdgeTTS({ voice: 'dmitry' });
+  
+  const hedraTTSRef = useRef(hedraTTS);
+  const edgeTTSRef = useRef(edgeTTS);
+  hedraTTSRef.current = hedraTTS;
+  edgeTTSRef.current = edgeTTS;
+  
+  const speak = useCallback(async (text: string): Promise<void> => {
+    const hedra = hedraTTSRef.current;
+    const edge = edgeTTSRef.current;
+    
+    if (hedra.isConfigured) {
+      try {
+        await Promise.race([
+          hedra.speak(text),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Hedra timeout')), 10000)),
+        ]);
+        return;
+      } catch (e) {
+        console.warn('🔊 Hedra TTS failed, falling back to Edge TTS:', e);
+        hedra.stop();
+      }
+    }
+    
+    try {
+      await edge.speak(text);
+    } catch (e) {
+      console.warn('🔊 Edge TTS also failed:', e);
+    }
+  }, []);
   
   const spokenRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -159,12 +187,15 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     spokenRef.current = results.round_id;
     
     const runSequence = async () => {
-      // Для photo_guess - особая озвучка
-      if (is_photo_guess && guest_name) {
-        await speak(`Время вышло! Это ${guest_name}!`);
-      } else {
-        // Стандартная озвучка
-        await speak(`Время вышло! Правильный ответ: ${correct_answer_text}`);
+      // Озвучка правильного ответа
+      try {
+        if (is_photo_guess && guest_name) {
+          await speak(`Время вышло! Это ${guest_name}!`);
+        } else {
+          await speak(`Время вышло! Правильный ответ: ${correct_answer_text}`);
+        }
+      } catch (e) {
+        console.warn('Results TTS failed:', e);
       }
       
       // Показываем статистику 5 секунд, затем переходим к таблице лидеров
@@ -173,18 +204,23 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
       setPhase('leaderboard');
       
       // Озвучиваем лидера если он один
-      if (leaderboard.length > 0) {
-        const leader = leaderboard[0];
-        const secondPlace = leaderboard[1];
-        
-        if (!secondPlace || leader.score > secondPlace.score) {
-          await speak(`Сейчас лидирует ${leader.name}!`);
+      try {
+        if (leaderboard.length > 0) {
+          const leader = leaderboard[0];
+          const secondPlace = leaderboard[1];
+          
+          if (!secondPlace || leader.score > secondPlace.score) {
+            await speak(`Сейчас лидирует ${leader.name}!`);
+          }
         }
+      } catch (e) {
+        console.warn('Leader TTS failed:', e);
       }
     };
     
     runSequence();
-  }, [results.round_id, correct_answer_text, leaderboard, speak, is_photo_guess, guest_name]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results.round_id]);
 
   // Этап 1: Распределение ответов (большой экран)
   if (phase === 'stats') {
