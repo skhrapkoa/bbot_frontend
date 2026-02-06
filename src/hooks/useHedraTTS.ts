@@ -119,8 +119,12 @@ export function useHedraTTS(options: UseHedraTTSOptions = {}) {
 
     const data = await response.json();
     
-    // Если уже готово
+    // Если уже готово — используем прокси URL вместо прямого Hedra CDN (CORS/ORB)
+    if (data.audio_url && data.task_id) {
+      return `${API_BASE_URL}/api/hedra-tts/${data.task_id}/audio/`;
+    }
     if (data.audio_url) {
+      // Fallback: нет task_id, но есть url — попробуем напрямую
       return data.audio_url;
     }
     
@@ -134,7 +138,8 @@ export function useHedraTTS(options: UseHedraTTSOptions = {}) {
       const status = await statusResponse.json();
       
       if (status.status === 'completed' && status.audio_url) {
-        return status.audio_url;
+        // Возвращаем проксированный URL вместо прямого Hedra CDN
+        return `${API_BASE_URL}/api/hedra-tts/${taskId}/audio/`;
       }
       if (status.status === 'failed') {
         throw new Error(status.error || 'Generation failed');
