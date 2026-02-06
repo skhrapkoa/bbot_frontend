@@ -77,7 +77,6 @@ function App() {
     if (state.status === 'lobby') {
       prevBlockOrderRef.current = -1;
       finalePlayedRef.current = false;
-      initializedRef.current = false;
     }
   }, [state]);
 
