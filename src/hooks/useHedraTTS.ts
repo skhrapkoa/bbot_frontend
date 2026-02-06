@@ -171,10 +171,14 @@ export function useHedraTTS(options: UseHedraTTSOptions = {}) {
           audioUrl = await generateViaBackend(text, controller.signal);
         }
 
-        setState(s => ({ ...s, isLoading: false, isPlaying: true }));
+        setState(s => ({ ...s, isLoading: false, isPlaying: false }));
 
         // Воспроизвести
         audioRef.current = new Audio(audioUrl);
+        
+        audioRef.current.onplay = () => {
+          setState(s => ({ ...s, isPlaying: true }));
+        };
         
         audioRef.current.onended = () => {
           setState(s => ({ ...s, isPlaying: false }));

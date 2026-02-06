@@ -5,7 +5,6 @@ import { Leaderboard } from '../components/Leaderboard';
 import { Confetti } from '../components/Confetti';
 import { GuestPhoto } from '../components/GuestPhoto';
 import { useHedraTTS } from '../hooks/useHedraTTS';
-import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { RoundResults, PlayerResult } from '../types';
 
 // Музыка для результатов
@@ -126,38 +125,20 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     reveal_photo_url
   } = results;
   
-  // TTS: Hedra > EdgeTTS с автофолбэком
+  // TTS: только Hedra
   const hedraTTS = useHedraTTS();
-  const edgeTTS = useEdgeTTS({ voice: 'dmitry' });
-  
-  const hedraTTSRef = useRef(hedraTTS);
-  const edgeTTSRef = useRef(edgeTTS);
-  hedraTTSRef.current = hedraTTS;
-  edgeTTSRef.current = edgeTTS;
   
   const speak = useCallback(async (text: string): Promise<void> => {
-    const hedra = hedraTTSRef.current;
-    const edge = edgeTTSRef.current;
-    
-    if (hedra.isConfigured) {
-      try {
-        await Promise.race([
-          hedra.speak(text),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Hedra timeout')), 10000)),
-        ]);
-        return;
-      } catch (e) {
-        console.warn('🔊 Hedra TTS failed, falling back to Edge TTS:', e);
-        hedra.stop();
-      }
+    if (!hedraTTS.isConfigured) {
+      console.error('🔊 Hedra TTS is not configured');
+      return;
     }
-    
     try {
-      await edge.speak(text);
+      await hedraTTS.speak(text);
     } catch (e) {
-      console.warn('🔊 Edge TTS also failed:', e);
+      console.warn('🔊 Hedra TTS failed:', e);
     }
-  }, []);
+  }, [hedraTTS]);
   
   const spokenRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);

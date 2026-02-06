@@ -1,11 +1,10 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from '../components/Timer';
 import { OptionCard } from '../components/OptionCard';
 import { PlayerCounter } from '../components/PlayerCounter';
 import { GuestPhoto } from '../components/GuestPhoto';
 import { useHedraTTS } from '../hooks/useHedraTTS';
-import { useEdgeTTS } from '../hooks/useEdgeTTS';
 import type { Round } from '../types';
 
 // URL фоновой музыки для таймера (Who Wants to Be a Millionaire style)
@@ -24,21 +23,15 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   const isMusic = round.block_type === 'music';
   const isPhotoGuess = round.block_type === 'photo_guess' || round.is_photo_guess;
   
-  // Hedra TTS (голос Наташи) с fallback на EdgeTTS
+  // Hedra TTS (обязательный голос)
   const hedraTTS = useHedraTTS();
-  const edgeTTS = useEdgeTTS({ voice: 'dmitry' });
-  
-  // Ref-ы для стабильного доступа из эффекта (без stale closure)
-  const hedraTTSRef = useRef(hedraTTS);
-  const edgeTTSRef = useRef(edgeTTS);
-  hedraTTSRef.current = hedraTTS;
-  edgeTTSRef.current = edgeTTS;
   
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
   const [songPlaying, setSongPlaying] = useState(false);
+  const [optionsLocked, setOptionsLocked] = useState(false);
   const showListeningAnimation = isMusic && songPlaying;
   
   // Время на ответ - хардкод 15 секунд
@@ -54,8 +47,11 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     return `${round.question_text}... ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
   }, [round.question_text, round.options, timeLimit]);
   
-  // Для музыкальных раундов — только варианты (вопрос уже видели)
+  // Для музыкальных раундов — варианты, а если их нет — только вопрос
   const musicOptionsSpeechText = useMemo(() => {
+    if (!round.options || round.options.length === 0) {
+      return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
+    }
     const letters = ['А', 'Б', 'В', 'Г'];
     const optionsText = round.options
       .map((opt, i) => `${letters[i] || i + 1}. ${opt}`)
@@ -68,32 +64,12 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
   }, [round.question_text, timeLimit]);
   
-  // TTS с автоматическим fallback: Hedra → Edge → Web Speech
-  const speakWithFallback = useCallback(async (text: string): Promise<void> => {
-    const hedra = hedraTTSRef.current;
-    const edge = edgeTTSRef.current;
-    
-    if (hedra.isConfigured) {
-      try {
-        // Hedra с таймаутом 10 секунд — если дольше, значит что-то сдохло
-        await Promise.race([
-          hedra.speak(text),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Hedra timeout')), 10000)),
-        ]);
-        return;
-      } catch (e) {
-        console.warn('🔊 Hedra TTS failed, falling back to Edge TTS:', e);
-        hedra.stop(); // Прервать зависший Hedra
-      }
+  // Разблокируем варианты, когда Hedra начинает играть
+  useEffect(() => {
+    if (hedraTTS.isPlaying && optionsLocked) {
+      setOptionsLocked(false);
     }
-    
-    // Fallback на Edge TTS (быстрый, без Celery)
-    try {
-      await edge.speak(text);
-    } catch (e) {
-      console.warn('🔊 Edge TTS also failed:', e);
-    }
-  }, []);
+  }, [hedraTTS.isPlaying, optionsLocked]);
 
   // Главный эффект: сброс + озвучка + музыка при смене раунда
   useEffect(() => {
@@ -104,6 +80,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     setTimerStarted(false);
     setTimerDeadline(null);
     setSongPlaying(isMusic);
+    setOptionsLocked(true);
     
     let cancelled = false;
     
@@ -112,6 +89,8 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       musicRef.current.pause();
       musicRef.current = null;
     }
+    // Остановить предыдущий голос Hedra
+    hedraTTS.stop();
     
     const startTimer = () => {
       if (cancelled) return;
@@ -137,6 +116,25 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     const timer = setTimeout(async () => {
       console.log('🎵 DEBUG:', { isMusic, block_type: round.block_type, song_url: round.song_url, round_id: round.id });
       
+      const speakHedraOnly = async (text: string) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        while (!cancelled) {
+          if (!hedraTTS.isConfigured) {
+            console.error('🎵 Hedra TTS is not configured. Waiting...');
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          try {
+            await hedraTTS.speak(trimmed);
+            return;
+          } catch (e) {
+            console.warn('🎵 Hedra TTS failed, retrying in 3s:', e);
+            await new Promise(r => setTimeout(r, 3000));
+          }
+        }
+      };
+      
       // МУЗЫКАЛЬНЫЙ раунд: песня → варианты появляются → озвучка → таймер
       if (isMusic && round.song_url) {
         console.log('🎵 MUSIC: Playing song:', round.song_url);
@@ -161,14 +159,14 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
         console.log('🎵 Song ended, showing options');
         setSongPlaying(false);
         
-        // Даём React отрисовать варианты перед озвучкой
-        await new Promise(r => setTimeout(r, 300));
+        // Даём React отрисовать плейсхолдер перед озвучкой
+        await new Promise(r => setTimeout(r, 200));
         if (cancelled) return;
         
-        // Озвучиваем варианты (с fallback Hedra → Edge)
-        console.log('🎵 Speaking options:', musicOptionsSpeechText);
-        await speakWithFallback(musicOptionsSpeechText);
-        console.log('🎵 TTS done');
+        // Озвучиваем варианты (ТОЛЬКО Hedra)
+        console.log('🎵 Speaking options (Hedra only):', musicOptionsSpeechText);
+        await speakHedraOnly(musicOptionsSpeechText);
+        console.log('🎵 Hedra TTS done');
         if (cancelled) return;
         
         startTimer();
@@ -177,7 +175,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       
       // Остальные типы: озвучить → таймер
       const speechText = isPhotoGuess ? photoGuessSpeechText : optionsSpeechText;
-      await speakWithFallback(speechText);
+      await speakHedraOnly(speechText);
       if (cancelled) return;
       startTimer();
     }, 300);
@@ -186,8 +184,19 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       cancelled = true;
       clearTimeout(timer);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round.id]);
+  }, [
+    round.id,
+    isMusic,
+    isPhotoGuess,
+    round.song_url,
+    round.song_duration_seconds,
+    optionsSpeechText,
+    musicOptionsSpeechText,
+    photoGuessSpeechText,
+    timeLimit,
+    onTimerStart,
+    hedraTTS,
+  ]);
   
   // Остановить музыку при уходе со страницы
   useEffect(() => {
@@ -364,6 +373,22 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
             <div className="text-2xl md:text-3xl text-white/70 font-semibold">
               Слушаем фрагмент...
             </div>
+          </motion.div>
+        ) : optionsLocked ? (
+          <motion.div
+            key="voice-loading"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <div className="text-2xl md:text-3xl text-white/70 font-semibold">
+              Готовим голос Hedra...
+            </div>
+            {hedraTTS.error && (
+              <div className="text-sm text-red-300/90">
+                Ошибка Hedra TTS, пробуем ещё раз...
+              </div>
+            )}
           </motion.div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
