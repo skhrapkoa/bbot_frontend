@@ -126,7 +126,7 @@ function App() {
             </div>
           );
         }
-        return <ResultsScreen results={results} />;
+        return <ResultsScreen results={results} round={state.current_round || undefined} />;
 
       case 'playing_song':
         if (!songData) return null;

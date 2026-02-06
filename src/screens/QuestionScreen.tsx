@@ -51,7 +51,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     return `${round.question_text}... ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
   }, [round.question_text, round.options, timeLimit]);
   
-  // Для музыкальных раундов — варианты, а если их нет — только вопрос
+  // Для музыкальных раундов — вопрос + варианты
   const musicOptionsSpeechText = useMemo(() => {
     if (!round.options || round.options.length === 0) {
       return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
@@ -61,8 +61,8 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       .map((opt, i) => `${letters[i] || i + 1}. ${opt}`)
       .join('. ');
     
-    return `Варианты ответа: ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
-  }, [round.options, timeLimit]);
+    return `${round.question_text}... Варианты ответа: ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
+  }, [round.question_text, round.options, timeLimit]);
   
   const photoGuessSpeechText = useMemo(() => {
     return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
@@ -136,11 +136,15 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       
       // МУЗЫКАЛЬНЫЙ раунд: песня → варианты появляются → озвучка → таймер
       if (isMusic && round.song_url) {
-        console.log('🎵 MUSIC: Playing song:', round.song_url);
+        const startSec = round.song_start_seconds ?? 0;
+        const endSec = round.song_end_seconds ?? (startSec + (round.song_duration_seconds || 15));
+        const clipDuration = endSec - startSec;
         
-        const songDuration = round.song_duration_seconds || 15;
+        console.log(`🎵 MUSIC: Playing song: ${round.song_url} [${startSec}s - ${endSec}s]`);
+        
         musicRef.current = new Audio(round.song_url);
         musicRef.current.volume = 0.8;
+        musicRef.current.currentTime = startSec;
         
         try {
           await musicRef.current.play();
@@ -148,8 +152,8 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
           console.error('🎵 Play error:', e);
         }
         
-        // Ждём пока песня доиграет
-        await new Promise(r => setTimeout(r, songDuration * 1000));
+        // Ждём пока обрывок доиграет
+        await new Promise(r => setTimeout(r, clipDuration * 1000));
         if (cancelled) return;
         
         stopCurrentAudio();

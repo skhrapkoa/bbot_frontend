@@ -5,7 +5,7 @@ import { Leaderboard } from '../components/Leaderboard';
 import { Confetti } from '../components/Confetti';
 import { GuestPhoto } from '../components/GuestPhoto';
 import { useHedraTTS } from '../hooks/useHedraTTS';
-import type { RoundResults, PlayerResult } from '../types';
+import type { RoundResults, PlayerResult, Round } from '../types';
 
 // Музыка для результатов
 const RESULTS_MUSIC = [
@@ -21,6 +21,7 @@ const RESULTS_MUSIC = [
 
 interface ResultsScreenProps {
   results: RoundResults;
+  round?: Round;
   showConfetti?: boolean;
 }
 
@@ -107,7 +108,7 @@ function PlayersList({
   );
 }
 
-export function ResultsScreen({ results, showConfetti = true }: ResultsScreenProps) {
+export function ResultsScreen({ results, round, showConfetti = true }: ResultsScreenProps) {
   const { 
     question_text, 
     options, 
@@ -138,12 +139,19 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
   
   const spokenRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const songReplayRef = useRef<HTMLAudioElement | null>(null);
+  
+  const isMusic = round?.block_type === 'music';
   
   // Фазы: 'stats' (распределение) -> 'leaderboard' (таблица лидеров)
   const [phase, setPhase] = useState<'stats' | 'leaderboard'>('stats');
+  // Для music раунда: показывать анимацию прослушивания пока играет обрывок
+  const [songReplaying, setSongReplaying] = useState(false);
 
-  // Запуск музыки
+  // Запуск фоновой музыки (НЕ для music раундов — там будет реплей песни)
   useEffect(() => {
+    if (isMusic) return; // Для music раунда музыку запускаем после реплея песни
+    
     const randomTrack = RESULTS_MUSIC[Math.floor(Math.random() * RESULTS_MUSIC.length)];
     const audio = new Audio(randomTrack);
     audio.volume = 0.3;
@@ -155,6 +163,20 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
     return () => {
       audio.pause();
       audio.src = '';
+    };
+  }, [isMusic]);
+
+  // Cleanup all audio on unmount
+  useEffect(() => {
+    return () => {
+      if (songReplayRef.current) {
+        songReplayRef.current.pause();
+        songReplayRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
@@ -173,6 +195,41 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
         }
       } catch (e) {
         console.warn('Results TTS failed:', e);
+      }
+      
+      // Для music раунда: проиграть обрывок песни (reveal clip)
+      if (isMusic && round?.song_url) {
+        setSongReplaying(true);
+        const revealStart = round.reveal_start_seconds ?? round.song_start_seconds ?? 0;
+        const revealEnd = round.reveal_end_seconds ?? round.song_end_seconds ?? (revealStart + (round.song_duration_seconds || 15));
+        const clipDuration = revealEnd - revealStart;
+        
+        console.log(`🎵 REVEAL: Playing song [${revealStart}s - ${revealEnd}s]`);
+        
+        try {
+          songReplayRef.current = new Audio(round.song_url);
+          songReplayRef.current.volume = 0.8;
+          songReplayRef.current.currentTime = revealStart;
+          await songReplayRef.current.play();
+          
+          // Ждём пока обрывок доиграет
+          await new Promise(r => setTimeout(r, clipDuration * 1000));
+          
+          songReplayRef.current?.pause();
+          songReplayRef.current = null;
+        } catch (e) {
+          console.warn('Song replay failed:', e);
+        }
+        
+        setSongReplaying(false);
+        
+        // После реплея запускаем фоновую музыку
+        const randomTrack = RESULTS_MUSIC[Math.floor(Math.random() * RESULTS_MUSIC.length)];
+        const bgAudio = new Audio(randomTrack);
+        bgAudio.volume = 0.3;
+        bgAudio.loop = true;
+        audioRef.current = bgAudio;
+        bgAudio.play().catch(() => {});
       }
       
       // Показываем статистику 5 секунд, затем переходим к таблице лидеров
@@ -212,6 +269,28 @@ export function ResultsScreen({ results, showConfetti = true }: ResultsScreenPro
           className="text-center mb-8"
         >
           <h1 className="text-6xl font-bold gradient-text mb-4">Результаты!</h1>
+          
+          {/* Анимация реплея песни для music раунда */}
+          {songReplaying && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center gap-3 mb-6"
+            >
+              <motion.div className="flex items-end gap-2">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="w-3 md:w-4 rounded-full bg-gradient-to-t from-green-500 to-emerald-400"
+                    style={{ height: 40, transformOrigin: 'bottom' }}
+                    animate={{ scaleY: [0.3, 1, 0.5] }}
+                    transition={{ duration: 0.5, repeat: Infinity, repeatType: 'mirror', delay: i * 0.08 }}
+                  />
+                ))}
+              </motion.div>
+              <p className="text-xl text-white/70 font-semibold">🎵 Слушаем правильный ответ...</p>
+            </motion.div>
+          )}
           
           {/* For photo_guess: show reveal photo (current photo) prominently */}
           {is_photo_guess && reveal_photo_url ? (

@@ -109,6 +109,10 @@ export function useGameSocket(sessionCode: string): UseGameSocketReturn {
             background_music_duration: event.data.background_music_duration,
             song_url: event.data.song_url,
             song_duration_seconds: event.data.song_duration_seconds,
+            song_start_seconds: event.data.song_start_seconds,
+            song_end_seconds: event.data.song_end_seconds,
+            reveal_start_seconds: event.data.reveal_start_seconds,
+            reveal_end_seconds: event.data.reveal_end_seconds,
           },
         } : null);
         setAnswerCount(0);
