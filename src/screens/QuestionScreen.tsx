@@ -26,6 +26,10 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   // Hedra TTS (обязательный голос)
   const hedraTTS = useHedraTTS();
   
+  // Стабильные рефы для TTS-методов, чтобы не ломать useEffect
+  const hedraTTSRef = useRef(hedraTTS);
+  hedraTTSRef.current = hedraTTS;
+  
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const spokenRoundRef = useRef<number | null>(null);
   const [timerStarted, setTimerStarted] = useState(false);
@@ -90,7 +94,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       musicRef.current = null;
     }
     // Остановить предыдущий голос Hedra
-    hedraTTS.stop();
+    hedraTTSRef.current.stop();
     
     const startTimer = () => {
       if (cancelled) return;
@@ -121,7 +125,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
         if (!trimmed) return;
         while (!cancelled) {
           try {
-            await hedraTTS.speak(trimmed);
+            await hedraTTSRef.current.speak(trimmed);
             return;
           } catch (e) {
             console.warn('🎵 Hedra TTS failed, retrying in 3s:', e);
@@ -179,6 +183,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
       cancelled = true;
       clearTimeout(timer);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     round.id,
     isMusic,
@@ -190,7 +195,6 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     photoGuessSpeechText,
     timeLimit,
     onTimerStart,
-    hedraTTS,
   ]);
   
   // Остановить музыку при уходе со страницы
