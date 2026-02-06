@@ -197,7 +197,7 @@ export function ResultsScreen({ results, round, showConfetti = true }: ResultsSc
         console.warn('Results TTS failed:', e);
       }
       
-      // Для music раунда: проиграть обрывок песни (reveal clip)
+      // Для music раунда: reveal clip → fade out → пауза → песня продолжает фоном
       if (isMusic && round?.song_url) {
         setSongReplaying(true);
         const revealStart = round.reveal_start_seconds ?? round.song_start_seconds ?? 0;
@@ -206,30 +206,61 @@ export function ResultsScreen({ results, round, showConfetti = true }: ResultsSc
         
         console.log(`🎵 REVEAL: Playing song [${revealStart}s - ${revealEnd}s]`);
         
+        const songAudio = new Audio(round.song_url);
+        songReplayRef.current = songAudio;
+        
         try {
-          songReplayRef.current = new Audio(round.song_url);
-          songReplayRef.current.volume = 0.8;
-          songReplayRef.current.currentTime = revealStart;
-          await songReplayRef.current.play();
+          songAudio.volume = 0.8;
+          songAudio.currentTime = revealStart;
+          await songAudio.play();
           
           // Ждём пока обрывок доиграет
           await new Promise(r => setTimeout(r, clipDuration * 1000));
           
-          songReplayRef.current?.pause();
+          // Fade out за 1.5 секунды
+          const fadeSteps = 15;
+          const fadeInterval = 1500 / fadeSteps;
+          const volumeStep = songAudio.volume / fadeSteps;
+          for (let i = 0; i < fadeSteps; i++) {
+            await new Promise(r => setTimeout(r, fadeInterval));
+            songAudio.volume = Math.max(0, songAudio.volume - volumeStep);
+          }
+          
+          setSongReplaying(false);
+          
+          // Пауза 1.5 сек тишины
+          songAudio.volume = 0;
+          await new Promise(r => setTimeout(r, 1500));
+          
+          // Песня продолжает играть фоном с того места где остановилась, плавный fade in
+          songAudio.volume = 0;
+          const targetVolume = 0.3;
+          const fadeInSteps = 10;
+          const fadeInInterval = 800 / fadeInSteps;
+          const fadeInStep = targetVolume / fadeInSteps;
+          
+          // Когда песня закончится — переключиться на плейлист
+          songAudio.onended = () => {
+            const randomTrack = RESULTS_MUSIC[Math.floor(Math.random() * RESULTS_MUSIC.length)];
+            const bgAudio = new Audio(randomTrack);
+            bgAudio.volume = 0.3;
+            bgAudio.loop = true;
+            audioRef.current = bgAudio;
+            bgAudio.play().catch(() => {});
+          };
+          
+          for (let i = 0; i < fadeInSteps; i++) {
+            await new Promise(r => setTimeout(r, fadeInInterval));
+            songAudio.volume = Math.min(targetVolume, songAudio.volume + fadeInStep);
+          }
+          
+          // Сохраняем как основное аудио (для cleanup)
+          audioRef.current = songAudio;
           songReplayRef.current = null;
         } catch (e) {
           console.warn('Song replay failed:', e);
+          setSongReplaying(false);
         }
-        
-        setSongReplaying(false);
-        
-        // После реплея запускаем фоновую музыку
-        const randomTrack = RESULTS_MUSIC[Math.floor(Math.random() * RESULTS_MUSIC.length)];
-        const bgAudio = new Audio(randomTrack);
-        bgAudio.volume = 0.3;
-        bgAudio.loop = true;
-        audioRef.current = bgAudio;
-        bgAudio.play().catch(() => {});
       }
       
       // Показываем статистику 5 секунд, затем переходим к таблице лидеров
