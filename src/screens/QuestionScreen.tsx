@@ -35,7 +35,8 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   const spokenRoundRef = useRef<number | null>(null);
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<string | null>(null);
-  const showListeningAnimation = isMusic && !timerStarted;
+  const [songPlaying, setSongPlaying] = useState(false);
+  const showListeningAnimation = isMusic && songPlaying;
   
   // Время на ответ - хардкод 15 секунд
   const timeLimit = 15;
@@ -50,6 +51,16 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     return `${round.question_text}... ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
   }, [round.question_text, round.options, timeLimit]);
   
+  // Для музыкальных раундов — только варианты (вопрос уже видели)
+  const musicOptionsSpeechText = useMemo(() => {
+    const letters = ['А', 'Б', 'В', 'Г'];
+    const optionsText = round.options
+      .map((opt, i) => `${letters[i] || i + 1}. ${opt}`)
+      .join('. ');
+    
+    return `Варианты ответа: ${optionsText}... Время пошло! У вас ${timeLimit} секунд.`;
+  }, [round.options, timeLimit]);
+  
   const photoGuessSpeechText = useMemo(() => {
     return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
   }, [round.question_text, timeLimit]);
@@ -59,6 +70,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     if (round.id !== spokenRoundRef.current) {
       setTimerStarted(false);
       setTimerDeadline(null);
+      setSongPlaying(isMusic);
     }
   }, [round.id]);
 
@@ -118,10 +130,18 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
           
           stopCurrentAudio();
           
+          // Песня закончилась — показываем варианты
+          setSongPlaying(false);
+          
+          // Озвучиваем варианты после песни
+          console.log('🎵 Song done, speaking options:', musicOptionsSpeechText);
           try {
-            await speak(optionsSpeechText);
+            await speak(musicOptionsSpeechText);
+            console.log('🎵 TTS finished normally');
           } catch (e) {
-            console.warn('TTS failed:', e);
+            console.warn('🎵 TTS failed, waiting 3s fallback:', e);
+            // Если TTS упал — даём хотя бы 3 секунды прочитать варианты
+            await new Promise(r => setTimeout(r, 3000));
           }
           if (cancelled) return;
           startTimer();
@@ -148,6 +168,7 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   }, [
     round.id,
     optionsSpeechText,
+    musicOptionsSpeechText,
     photoGuessSpeechText,
     speak,
     isMusic,
