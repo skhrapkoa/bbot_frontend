@@ -38,8 +38,8 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
   const [optionsLocked, setOptionsLocked] = useState(false);
   const showListeningAnimation = isMusic && songPlaying;
   
-  // Время на ответ - хардкод 15 секунд
-  const timeLimit = 15;
+  // Время на ответ из данных раунда
+  const timeLimit = round.time_limit_seconds || 15;
   
   // Тексты озвучки
   const optionsSpeechText = useMemo(() => {
