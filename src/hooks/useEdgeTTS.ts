@@ -39,7 +39,11 @@ export function useEdgeTTS(options: EdgeTTSOptions = {}) {
         
         // Резолвим когда аудио закончилось
         audioRef.current.onended = () => resolve();
-        audioRef.current.onerror = () => resolve();
+        audioRef.current.onerror = () => {
+          // Если аудио не загрузилось — fallback на Web Speech
+          fallbackSpeak(text);
+          setTimeout(resolve, text.length * 80);
+        };
         
         audioRef.current.play().catch(() => {
           fallbackSpeak(text);

@@ -182,13 +182,15 @@ export function useHedraTTS(options: UseHedraTTSOptions = {}) {
         };
         
         audioRef.current.onerror = () => {
-          setState(s => ({ ...s, isPlaying: false, error: 'Audio playback error' }));
-          resolve();
+          const err = new Error('Audio playback error');
+          setState(s => ({ ...s, isPlaying: false, error: err.message }));
+          reject(err);
         };
         
         audioRef.current.play().catch((e) => {
-          setState(s => ({ ...s, isPlaying: false, error: e.message }));
-          resolve();
+          const err = new Error(e?.message || 'Audio play failed');
+          setState(s => ({ ...s, isPlaying: false, error: err.message }));
+          reject(err);
         });
         
       } catch (error) {
