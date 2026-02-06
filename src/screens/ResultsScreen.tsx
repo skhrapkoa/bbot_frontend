@@ -189,7 +189,7 @@ export function ResultsScreen({ results, round, showConfetti = true }: ResultsSc
       // Озвучка правильного ответа
       try {
         if (is_photo_guess && guest_name) {
-          await speak(`Время вышло! Это ${guest_name}!`);
+          await speak(`Это ${guest_name}!`);
         } else {
           await speak(`Время вышло! Правильный ответ: ${correct_answer_text}`);
         }
