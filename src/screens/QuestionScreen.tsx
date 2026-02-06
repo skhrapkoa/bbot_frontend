@@ -65,119 +65,109 @@ export function QuestionScreen({ round, deadline, answerCount, playerCount, onTi
     return `${round.question_text}... Время пошло! У вас ${timeLimit} секунд.`;
   }, [round.question_text, timeLimit]);
   
-  // Сброс при смене раунда
+  // Главный эффект: сброс + озвучка + музыка при смене раунда
   useEffect(() => {
-    if (round.id !== spokenRoundRef.current) {
-      setTimerStarted(false);
-      setTimerDeadline(null);
-      setSongPlaying(isMusic);
+    if (round.id === spokenRoundRef.current) return;
+    spokenRoundRef.current = round.id;
+    
+    // Сброс состояния
+    setTimerStarted(false);
+    setTimerDeadline(null);
+    setSongPlaying(isMusic);
+    
+    let cancelled = false;
+    
+    // Остановить предыдущую музыку
+    if (musicRef.current) {
+      musicRef.current.pause();
+      musicRef.current = null;
     }
-  }, [round.id]);
-
-  // Озвучка и музыка при смене раунда
-  useEffect(() => {
-    if (round.id !== spokenRoundRef.current) {
-      spokenRoundRef.current = round.id;
-      let cancelled = false;
+    
+    const startTimer = () => {
+      if (cancelled) return;
+      const now = new Date();
+      now.setSeconds(now.getSeconds() + timeLimit);
+      setTimerDeadline(now.toISOString());
+      setTimerStarted(true);
+      onTimerStart?.();
       
-      // Остановить предыдущую музыку
+      musicRef.current = new Audio(TIMER_MUSIC_URL);
+      musicRef.current.volume = 0.3;
+      musicRef.current.loop = true;
+      musicRef.current.play().catch(() => {});
+    };
+    
+    const stopCurrentAudio = () => {
       if (musicRef.current) {
         musicRef.current.pause();
         musicRef.current = null;
       }
+    };
+    
+    const timer = setTimeout(async () => {
+      console.log('🎵 DEBUG:', { isMusic, block_type: round.block_type, song_url: round.song_url, round_id: round.id });
       
-      const startTimer = () => {
-        if (cancelled) return;
-        const now = new Date();
-        now.setSeconds(now.getSeconds() + timeLimit);
-        setTimerDeadline(now.toISOString());
-        setTimerStarted(true);
-        onTimerStart?.();
+      // МУЗЫКАЛЬНЫЙ раунд: песня → варианты появляются → озвучка → таймер
+      if (isMusic && round.song_url) {
+        console.log('🎵 MUSIC: Playing song:', round.song_url);
         
-        musicRef.current = new Audio(TIMER_MUSIC_URL);
-        musicRef.current.volume = 0.3;
-        musicRef.current.loop = true;
-        musicRef.current.play().catch(() => {});
-      };
-      
-      const stopCurrentAudio = () => {
-        if (musicRef.current) {
-          musicRef.current.pause();
-          musicRef.current = null;
-        }
-      };
-      
-      const timer = setTimeout(async () => {
-        // DEBUG: показываем что приходит
-        console.log('🎵 DEBUG:', { isMusic, block_type: round.block_type, song_url: round.song_url, round_id: round.id });
-        
-        // Для МУЗЫКАЛЬНОГО раунда - сначала играем песню, потом озвучиваем варианты и запускаем таймер
-        if (isMusic && round.song_url) {
-          console.log('🎵 MUSIC ROUND! Playing song:', round.song_url);
-          
-          const songDuration = round.song_duration_seconds || 15;
-          musicRef.current = new Audio(round.song_url);
-          musicRef.current.volume = 0.8;
-          
-          try {
-            await musicRef.current.play();
-          } catch (e) {
-            console.error('🎵 Play error:', e);
-          }
-          
-          await new Promise(r => setTimeout(r, songDuration * 1000));
-          if (cancelled) return;
-          
-          stopCurrentAudio();
-          
-          // Песня закончилась — показываем варианты
-          setSongPlaying(false);
-          
-          // Озвучиваем варианты после песни
-          console.log('🎵 Song done, speaking options:', musicOptionsSpeechText);
-          try {
-            await speak(musicOptionsSpeechText);
-            console.log('🎵 TTS finished normally');
-          } catch (e) {
-            console.warn('🎵 TTS failed, waiting 3s fallback:', e);
-            // Если TTS упал — даём хотя бы 3 секунды прочитать варианты
-            await new Promise(r => setTimeout(r, 3000));
-          }
-          if (cancelled) return;
-          startTimer();
-          return;
-        }
-        
-        // Фото-угадайка или обычный раунд - озвучить и запустить таймер
-        const speechText = isPhotoGuess ? photoGuessSpeechText : optionsSpeechText;
+        const songDuration = round.song_duration_seconds || 15;
+        musicRef.current = new Audio(round.song_url);
+        musicRef.current.volume = 0.8;
         
         try {
-          await speak(speechText);
+          await musicRef.current.play();
         } catch (e) {
-          console.warn('TTS failed:', e);
+          console.error('🎵 Play error:', e);
+        }
+        
+        // Ждём пока песня доиграет
+        await new Promise(r => setTimeout(r, songDuration * 1000));
+        if (cancelled) return;
+        
+        stopCurrentAudio();
+        
+        // Песня кончилась — показываем варианты на экране
+        console.log('🎵 Song ended, showing options');
+        setSongPlaying(false);
+        
+        // Даём React отрисовать варианты перед озвучкой
+        await new Promise(r => setTimeout(r, 300));
+        if (cancelled) return;
+        
+        // Озвучиваем варианты
+        console.log('🎵 Speaking options:', musicOptionsSpeechText);
+        try {
+          await speak(musicOptionsSpeechText);
+          console.log('🎵 TTS done');
+        } catch (e) {
+          console.warn('🎵 TTS failed, fallback 3s:', e);
+          await new Promise(r => setTimeout(r, 3000));
         }
         if (cancelled) return;
+        
         startTimer();
-      }, 300);
+        return;
+      }
       
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-      };
-    }
-  }, [
-    round.id,
-    optionsSpeechText,
-    musicOptionsSpeechText,
-    photoGuessSpeechText,
-    speak,
-    isMusic,
-    isPhotoGuess,
-    round.song_url,
-    round.song_duration_seconds,
-    onTimerStart,
-    timeLimit,
-  ]);
+      // Остальные типы: озвучить → таймер
+      const speechText = isPhotoGuess ? photoGuessSpeechText : optionsSpeechText;
+      
+      try {
+        await speak(speechText);
+      } catch (e) {
+        console.warn('TTS failed:', e);
+      }
+      if (cancelled) return;
+      startTimer();
+    }, 300);
+    
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round.id]);
   
   // Остановить музыку при уходе со страницы
   useEffect(() => {
